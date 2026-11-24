@@ -1,0 +1,15 @@
+{"detector":"long-connection","ts":"2026-11-23T12:00:01Z","uid":"C001","orig":"172.28.0.30:40001","resp":"172.28.0.10:443","detail":"QUIC connection lasted 6m40s (threshold 5m0s)"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:00:01Z","uid":"C001","orig":"172.28.0.30:40001","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:00:05Z","uid":"C002","orig":"172.28.0.31:41001","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:00:05Z","uid":"C002","orig":"172.28.0.31:41001","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:01:03Z","uid":"C003","orig":"172.28.0.31:41002","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:01:03Z","uid":"C003","orig":"172.28.0.31:41002","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"missing-sni","ts":"2026-11-23T12:01:10Z","uid":"C012","orig":"172.28.0.40:42005","resp":"172.28.0.20:443","detail":"QUIC handshake without a server name"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:02:06Z","uid":"C004","orig":"172.28.0.31:41003","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:02:06Z","uid":"C004","orig":"172.28.0.31:41003","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:03:04Z","uid":"C005","orig":"172.28.0.31:41004","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:03:04Z","uid":"C005","orig":"172.28.0.31:41004","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:04:07Z","uid":"C006","orig":"172.28.0.31:41005","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:04:07Z","uid":"C006","orig":"172.28.0.31:41005","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}
+{"detector":"periodic-connections","ts":"2026-11-23T12:05:05Z","uid":"C007","orig":"172.28.0.31:41006","resp":"172.28.0.10:443","detail":"6 connections 172.28.0.31 -\u003e 172.28.0.10:443, mean gap 1m0s, coefficient of variation 0.04"}
+{"detector":"unapproved-destination","ts":"2026-11-23T12:05:05Z","uid":"C007","orig":"172.28.0.31:41006","resp":"172.28.0.10:443","detail":"QUIC to 172.28.0.10, outside approved networks"}

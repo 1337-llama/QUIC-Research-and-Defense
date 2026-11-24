@@ -1,0 +1,13 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	conn
+#open	2026-11-23-12-00-00
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	service	duration	orig_bytes	resp_bytes	conn_state
+#types	time	string	addr	port	addr	port	enum	string	interval	count	count	string
+1795435200.000000	Ca1	172.28.0.30	50001	172.28.0.10	443	udp	quic,ssl	360.250000	40000	35000	SF
+1795435210.123456	Ca2	172.28.0.40	50002	172.28.0.20	443	udp	quic	1.500000	3000	9000	SF
+1795435220.000000	Ca3	172.28.0.40	53	172.28.0.2	53	udp	dns	0.001000	40	80	SF
+1795435230.000000	Ca4	172.28.0.40	50004	172.28.0.20	443	udp	-	-	-	-	S0
+#close	2026-11-23-12-10-00

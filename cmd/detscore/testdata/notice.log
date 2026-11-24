@@ -1,0 +1,7 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	notice
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	note	msg
+1795435603.000000	C001	172.28.0.30	40001	172.28.0.10	443	QUICHunt::Long_QUIC_Connection	QUIC connection lasted 6.0 mins
