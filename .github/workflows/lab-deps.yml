@@ -1,0 +1,36 @@
+name: Update lab dependencies
+
+# Run manually to resolve the lab module's dependencies (go mod tidy) and
+# commit lab/go.mod and lab/go.sum to the selected branch. Use it once after
+# cloning a branch without lab/go.sum, or after editing lab/go.mod by hand.
+# Commits pushed with GITHUB_TOKEN do not trigger CI, so re-run CI afterwards.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - name: go mod tidy
+        working-directory: lab
+        run: go mod tidy && go mod verify
+      - name: Commit changes
+        run: |
+          if git diff --quiet -- lab/go.mod && [ -z "$(git status --porcelain -- lab/go.sum)" ]; then
+            echo "lab dependencies already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lab/go.mod lab/go.sum
+          git commit -m "lab: resolve module dependencies (go mod tidy)"
+          git push

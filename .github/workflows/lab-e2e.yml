@@ -1,0 +1,64 @@
+name: Lab end-to-end
+
+# Runs the full Docker detection lab: real HTTP/3 traffic on an isolated
+# network, captured and analyzed by Zeek and Suricata, then scored against
+# ground truth. The gates encode the results the reference detections are
+# expected to achieve on the lab's built-in scenario.
+
+on:
+  pull_request:
+    paths:
+      - "lab/**"
+      - "internal/**"
+      - "cmd/**"
+      - "detections/**"
+      - ".github/workflows/lab-e2e.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Simulator run time
+        default: 6m
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the lab
+        env:
+          LAB_DURATION: ${{ inputs.duration || '6m' }}
+        run: |
+          lab/harness/run.sh \
+            -require '(any):recall>=0.95' \
+            -require 'unapproved-destination:recall>=0.95' \
+            -require 'unapproved-destination:precision>=0.95' \
+            -require 'periodic-connections:precision>=0.95' \
+            -require 'long-connection:precision>=0.95'
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '## Detection lab results'
+            echo '```'
+            cat lab/harness/out/report.txt 2>/dev/null || echo "no report produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload lab outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-outputs
+          path: lab/harness/out/
+          retention-days: 14

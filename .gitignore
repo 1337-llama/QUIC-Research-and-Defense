@@ -32,3 +32,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# quic_research
+coverage.out
+lab/harness/out/
+*.pcap
+*.pcapng
+keys*.log
