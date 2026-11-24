@@ -53,7 +53,7 @@ Everything else, including the packet number, key-phase bit and all frames, is p
 
 ## 1.4 The handshake
 
-```
+```text
 Client                                              Server
   | Initial: ClientHello (SNI, ALPN, transport params)  |
   |  + padding to >= 1200 bytes ----------------------> |

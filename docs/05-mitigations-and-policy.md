@@ -59,4 +59,4 @@ The answer to all of these is the same. Control *whether* QUIC is used and *by w
 
 ---
 
-**Previous:** [4. Detection guide](04-detection-guide.md) · **Next:** [References](references.md)
+**Previous:** [4. Detection guide](04-detection-guide.md) · **Next:** [6. The beacon simulator](06-beacon-simulator.md)
