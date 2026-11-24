@@ -1,0 +1,7 @@
+.git
+.github
+**/out/
+**/*.pcap
+**/*.pcapng
+coverage.out
+docs/

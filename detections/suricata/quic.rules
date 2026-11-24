@@ -1,0 +1,9 @@
+# Reference QUIC rules for the quic_research detection lab.
+# Requires Suricata 7+ with the QUIC app-layer parser enabled
+# (app-layer.protocols.quic.enabled: yes). SIDs 9000000-9000999 are reserved
+# for this project.
+
+# Long-header QUIC packets with a version other than v1 (0x00000001) or
+# v2 (0x6b3343cf). This includes grease versions and Version Negotiation,
+# so expect some benign hits: tune by adding the versions you see normally.
+alert quic any any -> any any (msg:"QUIC uncommon version"; quic.version; content:!"|00 00 00 01|"; content:!"|6b 33 43 cf|"; classtype:policy-violation; sid:9000002; rev:1;)
