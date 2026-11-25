@@ -14,7 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANGCI_LINT_VERSION: v2.5.0
+  # Must be built with a Go at least as new as any module it lints
+  # (lab/go.mod may require a newer Go than the core module).
+  GOLANGCI_LINT_VERSION: v2.12.2
   COVER_MIN: "90"
 
 jobs:
@@ -136,15 +138,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Keep these images in step with lab/harness/compose.yaml, which
+      # Dependabot updates.
       - name: Zeek scripts parse
         run: |
-          docker run --rm -v "$PWD:/src:ro" -w /src zeek/zeek:7.0 \
+          docker run --rm -v "$PWD:/src:ro" -w /src zeek/zeek:9.0 \
             zeek -a detections/zeek/quic-hunting.zeek lab/harness/zeek/lab-config.zeek
       - name: Suricata rules load
         run: |
           for rules in detections/suricata/*.rules; do
             echo "::group::$rules"
-            docker run --rm -v "$PWD:/src:ro" --entrypoint suricata jasonish/suricata:7.0 \
+            docker run --rm -v "$PWD:/src:ro" --entrypoint suricata jasonish/suricata:8.0 \
               -T -S "/src/$rules" -l /tmp --set app-layer.protocols.quic.enabled=yes
             echo "::endgroup::"
           done
