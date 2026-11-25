@@ -42,14 +42,33 @@ if [[ "$(uname -s)" != Linux ]]; then
 fi
 
 rm -rf "$LAB_OUT"
-mkdir -p "$LAB_OUT/zeek" "$LAB_OUT/suricata"
+mkdir -p "$LAB_OUT/zeek" "$LAB_OUT/suricata" "$LAB_OUT/shared"
+
+# On failure, show the container logs inline (CI job logs are often easier
+# to reach than uploaded artifacts).
+show_logs() {
+  echo "---- lab server logs (last 40 lines) ----" >&2
+  compose logs --no-log-prefix --tail 40 c2 cdn >&2 || true
+  echo "---- simulator logs (last 60 lines) ----" >&2
+  tail -n 60 "$LAB_OUT/simulators.log" >&2 || true
+}
 
 log "Building the lab image"
 compose build tools
 
 log "Starting lab servers and capture"
 compose up -d c2 cdn capture
-sleep 3
+for cert in c2 cdn; do
+  for _ in $(seq 1 30); do
+    [[ -s "$LAB_OUT/shared/$cert.pem" ]] && break
+    sleep 1
+  done
+  if [[ ! -s "$LAB_OUT/shared/$cert.pem" ]]; then
+    echo "lab server $cert did not publish its certificate" >&2
+    show_logs
+    exit 1
+  fi
+done
 
 log "Running traffic profiles for $LAB_DURATION"
 compose up --no-deps --no-log-prefix "${sims[@]}" >"$LAB_OUT/simulators.log" 2>&1
@@ -58,6 +77,7 @@ for s in "${sims[@]}"; do
   code="$(docker inspect -f '{{.State.ExitCode}}' "$id")"
   if [[ "$code" != 0 ]]; then
     echo "$s exited with status $code; see $LAB_OUT/simulators.log" >&2
+    show_logs
     exit 1
   fi
 done
