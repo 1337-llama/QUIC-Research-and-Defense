@@ -79,7 +79,7 @@ services:
 
   # Packet capture of the lab bridge (UDP only).
   capture:
-    image: nicolaka/netshoot:v0.13
+    image: nicolaka/netshoot:v0.16
     network_mode: host
     cap_add: [NET_ADMIN, NET_RAW]
     command: [tcpdump, -i, qrlab0, -U, -n, -w, /out/lab.pcap, udp]
@@ -90,7 +90,7 @@ services:
 
   zeek:
     profiles: [analyze]
-    image: zeek/zeek:7.0
+    image: zeek/zeek:9.0
     working_dir: /out/zeek
     network_mode: none
     command: [zeek, -C, -r, /out/lab.pcap, /detections/zeek/quic-hunting.zeek, /lab/lab-config.zeek, "LogAscii::use_json=T"]
@@ -101,7 +101,7 @@ services:
 
   suricata:
     profiles: [analyze]
-    image: jasonish/suricata:7.0
+    image: jasonish/suricata:8.0
     network_mode: none
     entrypoint: [suricata]
     command: [-r, /out/lab.pcap, -S, /detections/suricata/quic.rules, -l, /out/suricata, -k, none,

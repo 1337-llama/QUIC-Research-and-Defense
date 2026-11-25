@@ -12,6 +12,7 @@ package beacon
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -199,9 +200,7 @@ func newRunner(cfg Config) (*runner, error) {
 		return nil, err
 	}
 	var seed [32]byte
-	for i := range 8 {
-		seed[i] = byte(cfg.Seed >> (8 * i))
-	}
+	binary.LittleEndian.PutUint64(seed[:8], cfg.Seed)
 	return &runner{
 		cfg:     cfg,
 		sampler: sampler,
