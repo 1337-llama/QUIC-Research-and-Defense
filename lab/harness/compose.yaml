@@ -90,7 +90,7 @@ services:
 
   zeek:
     profiles: [analyze]
-    image: zeek/zeek:7.0
+    image: zeek/zeek:9.0
     working_dir: /out/zeek
     network_mode: none
     command: [zeek, -C, -r, /out/lab.pcap, /detections/zeek/quic-hunting.zeek, /lab/lab-config.zeek, "LogAscii::use_json=T"]
