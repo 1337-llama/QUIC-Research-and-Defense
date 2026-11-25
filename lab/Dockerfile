@@ -5,7 +5,7 @@
 #
 #   docker build -f lab/Dockerfile -t quic-research-lab:local .
 
-FROM golang:1.24-bookworm AS build
+FROM golang:1.25-bookworm AS build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOFLAGS=-trimpath
 
