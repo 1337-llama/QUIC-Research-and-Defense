@@ -76,7 +76,7 @@ sessions: 19 (malicious 7, benign 12)
        zeek:QUICHunt::Long_QUIC_Connection|       1|   1|   0|   6|  12|          0|      1.000|   0.143|  0.250|
 ```
 
-*(This is the scorer's golden test output for its fixture scenario. Real lab runs vary slightly with timing.)*
+This is the scorer's golden test output for its fixture scenario. Real lab runs vary slightly with timing.
 
 - Scoring is **per session**, meaning per QUIC connection, because that is what sensors log. A session counts as detected when at least one of the detector's alerts has the same endpoints (in either direction) and a timestamp within the session's lifetime, plus a tolerance (`-tolerance`, default 5s).
 - **TP / FN** count malicious sessions caught or missed. **FP / TN** count benign sessions flagged or left alone.

@@ -1,11 +1,18 @@
 name: Update lab dependencies
 
-# Run manually to resolve the lab module's dependencies (go mod tidy) and
-# commit lab/go.mod and lab/go.sum to the selected branch. Use it once after
-# cloning a branch without lab/go.sum, or after editing lab/go.mod by hand.
-# Commits pushed with GITHUB_TOKEN do not trigger CI, so re-run CI afterwards.
+# Resolves the lab module's dependencies (go mod tidy) and commits lab/go.mod
+# and lab/go.sum back to the branch. It runs automatically when lab/go.mod
+# changes on a non-main branch, and can be run by hand from the Actions tab
+# once this file is on the default branch.
+# Commits pushed with GITHUB_TOKEN do not trigger CI (which also prevents
+# loops), so push again or re-run CI afterwards.
 
 on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - lab/go.mod
+      - .github/workflows/lab-deps.yml
   workflow_dispatch:
 
 permissions:
@@ -15,8 +22,8 @@ jobs:
   tidy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
           cache: false
