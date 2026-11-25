@@ -101,7 +101,7 @@ services:
 
   suricata:
     profiles: [analyze]
-    image: jasonish/suricata:7.0
+    image: jasonish/suricata:8.0
     network_mode: none
     entrypoint: [suricata]
     command: [-r, /out/lab.pcap, -S, /detections/suricata/quic.rules, -l, /out/suricata, -k, none,
