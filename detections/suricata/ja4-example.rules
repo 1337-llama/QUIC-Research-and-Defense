@@ -1,0 +1,11 @@
+# Example only: alert on a known-bad JA4 fingerprint over QUIC.
+#
+# This file is NOT loaded by the lab. Replace the placeholder with a
+# fingerprint from your threat intelligence, and enable JA4 in suricata.yaml
+# (app-layer.protocols.tls.ja4-fingerprints / quic.ja4-fingerprints,
+# depending on your Suricata version) before using it.
+#
+# Do not write production rules from fingerprints produced by the lab
+# simulator: they vary with library version and build settings.
+
+alert quic any any -> any any (msg:"QUIC client with suspicious JA4"; ja4.hash; content:"q13d0000h3_000000000000_000000000000"; classtype:trojan-activity; sid:9000001; rev:1;)

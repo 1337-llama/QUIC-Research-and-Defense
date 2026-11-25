@@ -1,0 +1,132 @@
+# Detection lab: simulated QUIC C2 and benign traffic on an isolated network,
+# captured to a pcap and analyzed with Zeek, Suricata and detscore.
+#
+# Use run.sh rather than calling compose directly; it sequences capture,
+# traffic and analysis and checks every step. Requires a Linux Docker host
+# (the capture container sniffs the lab bridge from the host namespace).
+
+name: quic-research-lab
+
+x-lab-image: &lab-image
+  image: quic-research-lab:local
+  build:
+    context: ../..
+    dockerfile: lab/Dockerfile
+
+x-sim: &sim
+  <<: *lab-image
+  user: "${LAB_UID:-65532}:${LAB_GID:-65532}"
+  depends_on: [c2, cdn]
+  volumes:
+    - ${LAB_OUT:-./out}/shared:/shared:ro
+    - ${LAB_OUT:-./out}:/out
+
+# Lab servers run as the invoking user so they can publish their
+# certificates into the bind-mounted shared directory. (Docker lets
+# unprivileged container processes bind port 443.)
+x-server: &server
+  <<: *lab-image
+  user: "${LAB_UID:-65532}:${LAB_GID:-65532}"
+  volumes:
+    - ${LAB_OUT:-./out}/shared:/shared
+
+services:
+  # "C2" lab server: what the malicious profiles beacon to.
+  c2:
+    <<: *server
+    command: [beaconsrv, -listen, ":443", -hosts, "c2,172.28.0.10", -cert-out, /shared/c2.pem, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.10}
+
+  # "CDN" lab server: the approved destination benign traffic uses.
+  cdn:
+    <<: *server
+    command: [beaconsrv, -listen, ":443", -hosts, "cdn,172.28.0.20", -cert-out, /shared/cdn.pem, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.20}
+
+  sim-merlin:
+    <<: *sim
+    command: [beaconsim, -profile, merlin-like, -target, "c2:443", -ca, /shared/c2.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, merlin, -seed, "101",
+              -truth, /out/truth-merlin.jsonl, -keylog, /out/keys-merlin.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.30}
+
+  sim-quicagent:
+    <<: *sim
+    command: [beaconsim, -profile, quicagent-like, -target, "c2:443", -ca, /shared/c2.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, quicagent, -seed, "102",
+              -truth, /out/truth-quicagent.jsonl, -keylog, /out/keys-quicagent.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.31}
+
+  bg-browser-1:
+    <<: *sim
+    command: [beaconsim, -profile, browser-like, -target, "cdn:443", -ca, /shared/cdn.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, browser-1, -seed, "201",
+              -truth, /out/truth-browser-1.jsonl, -keylog, /out/keys-browser-1.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.40}
+
+  bg-browser-2:
+    <<: *sim
+    command: [beaconsim, -profile, browser-like, -target, "cdn:443", -ca, /shared/cdn.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, browser-2, -seed, "202",
+              -truth, /out/truth-browser-2.jsonl, -keylog, /out/keys-browser-2.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.41}
+
+  # Packet capture of the lab bridge (UDP only).
+  capture:
+    image: nicolaka/netshoot:v0.13
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    command: [tcpdump, -i, qrlab0, -U, -n, -w, /out/lab.pcap, udp]
+    volumes:
+      - ${LAB_OUT:-./out}:/out
+
+  # ---- Analysis (run on demand by run.sh) ----
+
+  zeek:
+    profiles: [analyze]
+    image: zeek/zeek:7.0
+    working_dir: /out/zeek
+    network_mode: none
+    command: [zeek, -C, -r, /out/lab.pcap, /detections/zeek/quic-hunting.zeek, /lab/lab-config.zeek, "LogAscii::use_json=T"]
+    volumes:
+      - ${LAB_OUT:-./out}:/out
+      - ../../detections:/detections:ro
+      - ./zeek:/lab:ro
+
+  suricata:
+    profiles: [analyze]
+    image: jasonish/suricata:7.0
+    network_mode: none
+    entrypoint: [suricata]
+    command: [-r, /out/lab.pcap, -S, /detections/suricata/quic.rules, -l, /out/suricata, -k, none,
+              --set, app-layer.protocols.quic.enabled=yes]
+    volumes:
+      - ${LAB_OUT:-./out}:/out
+      - ../../detections:/detections:ro
+
+  tools:
+    <<: *lab-image
+    profiles: [analyze]
+    user: "${LAB_UID:-65532}:${LAB_GID:-65532}"
+    network_mode: none
+    volumes:
+      - ${LAB_OUT:-./out}:/out
+
+networks:
+  labnet:
+    # internal: no route out of the lab. The simulator also refuses non-lab
+    # addresses on its own.
+    internal: true
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: qrlab0
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+

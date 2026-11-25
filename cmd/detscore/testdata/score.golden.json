@@ -1,0 +1,91 @@
+{
+  "sessions": 19,
+  "malicious": 7,
+  "benign": 12,
+  "results": [
+    {
+      "detector": "(any)",
+      "alerts": 17,
+      "tp": 7,
+      "fp": 1,
+      "fn": 0,
+      "tn": 11,
+      "unmatched": 0,
+      "precision": 0.875,
+      "recall": 1,
+      "f1": 0.9333333333333333
+    },
+    {
+      "detector": "long-connection",
+      "alerts": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 12,
+      "unmatched": 0,
+      "precision": 1,
+      "recall": 0.14285714285714285,
+      "f1": 0.25
+    },
+    {
+      "detector": "missing-sni",
+      "alerts": 1,
+      "tp": 0,
+      "fp": 1,
+      "fn": 7,
+      "tn": 11,
+      "unmatched": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    {
+      "detector": "periodic-connections",
+      "alerts": 6,
+      "tp": 6,
+      "fp": 0,
+      "fn": 1,
+      "tn": 12,
+      "unmatched": 0,
+      "precision": 1,
+      "recall": 0.8571428571428571,
+      "f1": 0.923076923076923
+    },
+    {
+      "detector": "suricata:QUIC client with suspicious JA4",
+      "alerts": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 12,
+      "unmatched": 0,
+      "precision": 1,
+      "recall": 0.14285714285714285,
+      "f1": 0.25
+    },
+    {
+      "detector": "unapproved-destination",
+      "alerts": 7,
+      "tp": 7,
+      "fp": 0,
+      "fn": 0,
+      "tn": 12,
+      "unmatched": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    {
+      "detector": "zeek:QUICHunt::Long_QUIC_Connection",
+      "alerts": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 12,
+      "unmatched": 0,
+      "precision": 1,
+      "recall": 0.14285714285714285,
+      "f1": 0.25
+    }
+  ]
+}

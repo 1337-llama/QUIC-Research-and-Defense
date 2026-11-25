@@ -39,6 +39,7 @@
 - [Suricata QUIC keywords](https://docs.suricata.io/en/latest/rules/quic-keywords.html)
 - [FoxIO JA4+](https://github.com/FoxIO-LLC/ja4) and [APNIC: JA4+ network fingerprinting](https://blog.apnic.net/2023/11/22/ja4-network-fingerprinting/)
 - [quic-go](https://github.com/quic-go/quic-go), the Go QUIC library used by most in-the-wild QUIC C2
+- [Merlin](https://github.com/Ne0nd0g/merlin), the open-source C2 framework with HTTP/3 support used in the lab guide
 - [Cloudflare Gateway: HTTP/3 inspection](https://developers.cloudflare.com/cloudflare-one/policies/gateway/http-policies/http3/)
 - [Fortinet: Blocking QUIC](https://docs.fortinet.com/document/fortisase/latest/administration-guide/219936/blocking-quic)
 - [Cisco: Disable QUIC Protocol to Ensure Compatibility](https://www.cisco.com/c/en/us/support/docs/security/umbrella/224709-disable-quic-protocol-to-ensure.pdf)

@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOLANGCI_LINT_VERSION: v2.5.0
+  COVER_MIN: "90"
+
+jobs:
+  core-test:
+    name: Core tests (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.24.x", "stable"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Module is tidy and dependency-free
+        run: |
+          go mod tidy -diff
+          test -z "$(go list -m all | tail -n +2)" || { echo "the core module must stay dependency-free"; go list -m all; exit 1; }
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race, shuffled)
+        run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - name: Coverage gate
+        run: scripts/coverage-gate.sh coverage.out "$COVER_MIN"
+      - name: Upload coverage
+        if: matrix.go == 'stable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  core-lint:
+    name: Core lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Lint with the go.mod toolchain: golangci-lint must be built with a Go
+      # at least as new as the one it analyzes.
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {pkg: ./internal/profile, target: FuzzLoad}
+          - {pkg: ./internal/payload, target: FuzzDecodeBeacon}
+          - {pkg: ./internal/zeeklog, target: FuzzRead}
+          - {pkg: ./internal/eve, target: FuzzReadAlerts}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Fuzz for 60s
+        run: go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime=60s ${{ matrix.pkg }}
+      - name: Upload failing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: "**/testdata/fuzz/${{ matrix.target }}/"
+
+  lab:
+    name: Lab module (HTTP/3 integration tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lab
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: lab/go.mod
+          cache-dependency-path: lab/go.sum
+      - name: go.mod and go.sum are committed and tidy
+        run: |
+          if [ ! -f go.sum ]; then
+            echo "::error::lab/go.sum is missing. Run 'make lab-tidy' and commit lab/go.sum."
+            go mod tidy && cat go.sum
+            exit 1
+          fi
+          go mod tidy -diff
+          go mod verify
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race)
+        run: go test -race -count=1 -v ./...
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: lab
+          args: --config ../.golangci.yml
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [".", "lab"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: stable
+          work-dir: ${{ matrix.module }}
+
+  detections:
+    name: Validate Zeek and Suricata content
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Zeek scripts parse
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src zeek/zeek:7.0 \
+            zeek -a detections/zeek/quic-hunting.zeek lab/harness/zeek/lab-config.zeek
+      - name: Suricata rules load
+        run: |
+          for rules in detections/suricata/*.rules; do
+            echo "::group::$rules"
+            docker run --rm -v "$PWD:/src:ro" --entrypoint suricata jasonish/suricata:7.0 \
+              -T -S "/src/$rules" -l /tmp --set app-layer.protocols.quic.enabled=yes
+            echo "::endgroup::"
+          done
+
+  harness:
+    name: Lab harness static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compose file is valid
+        run: docker compose -f lab/harness/compose.yaml --profile analyze config -q
+      - name: Shellcheck
+        run: shellcheck lab/harness/run.sh scripts/*.sh
+
+  docs:
+    name: Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          globs: "**/*.md"
+      - name: Local links resolve
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress "**/*.md"
+          fail: true

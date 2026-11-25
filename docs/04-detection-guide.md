@@ -49,56 +49,34 @@ This chapter covers the tools that give you QUIC visibility and a ranked set of 
 
 > These are starting points. Test them against your own traffic and tune them before you rely on them.
 
-**Zeek: flag long-lived QUIC connections**
+The content lives in [`detections/`](../detections/). CI checks that it parses and loads, and the [detection lab](07-detection-lab.md) scores it against ground truth:
+
+| File | What it does |
+|---|---|
+| [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic-hunting.zeek) | Zeek notices for long-lived QUIC connections (`QUICHunt::Long_QUIC_Connection`) and QUIC to destinations outside an allowlist (`QUICHunt::Unapproved_QUIC_Destination`). Tune with `redef QUICHunt::long_threshold` and `QUICHunt::approved_nets` |
+| [`detections/suricata/quic.rules`](../detections/suricata/quic.rules) | An alert on QUIC versions other than v1 and v2 |
+| [`detections/suricata/ja4-example.rules`](../detections/suricata/ja4-example.rules) | A template for alerting on a known-bad JA4 over QUIC. Replace the placeholder with a fingerprint from threat intel |
+| `detscore detect` ([chapter 7](07-detection-lab.md#75-reference-detectors)) | Reference implementations over Zeek logs: long connections, unapproved destinations, non-standard ports, periodic connections, missing SNI |
+
+The Zeek script's core logic:
 
 ```zeek
-@load base/frameworks/notice
-@load base/protocols/conn
-
-module QUICHunt;
-
-export {
-    redef enum Notice::Type += { Long_QUIC_Connection };
-    const long_threshold = 1 hr &redef;
-}
-
 event connection_state_remove(c: connection)
     {
-    if ( c$duration < long_threshold )
+    if ( ! is_quic(c) )
         return;
 
-    for ( s in c$service )
-        {
-        if ( to_lower(s) == "quic" )
-            {
-            NOTICE([$note=Long_QUIC_Connection, $conn=c,
-                    $msg=fmt("QUIC connection lasted %s", c$duration),
-                    $identifier=cat(c$id$orig_h, c$id$resp_h)]);
-            return;
-            }
-        }
+    if ( c$duration >= long_threshold )
+        NOTICE([$note=Long_QUIC_Connection, $conn=c, $ts=c$start_time,
+                $msg=fmt("QUIC connection lasted %s", c$duration),
+                $identifier=c$uid]);
+    ...
     }
 ```
 
-**Suricata: alert on a known-bad JA4 over QUIC** (replace the placeholder hash with one from your threat intel, and check keyword support on your Suricata version)
+### Hunting query logic (any SIEM)
 
-```
-alert quic any any -> any any (msg:"QUIC client with suspicious JA4"; \
-    ja4.hash; content:"q13d0000h3_000000000000_000000000000"; \
-    classtype:trojan-activity; sid:9000001; rev:1;)
-```
-
-**Suricata: alert on uncommon QUIC versions** (v1 and v2 are excluded)
-
-```
-alert quic any any -> any any (msg:"Uncommon QUIC version"; \
-    quic.version; content:!"|00 00 00 01|"; content:!"|6b 33 43 cf|"; \
-    classtype:policy-violation; sid:9000002; rev:1;)
-```
-
-**Hunting query logic (any SIEM)**
-
-```
+```text
 QUIC flows (Zeek quic.log joined to conn.log)
   WHERE destination ASN NOT IN (approved CDN/SaaS ASNs)
     AND (duration > 1h OR flows_per_day_to_dest > N OR server_name IS NULL)
@@ -108,8 +86,9 @@ QUIC flows (Zeek quic.log joined to conn.log)
 
 ## 4.4 Testing your detections
 
-- **Emulate the real threats.** Most in-the-wild QUIC C2 is Go and quic-go, so test with Go-based tooling. Merlin is the best-known public red-team framework with HTTP/3 support. Run it only in an isolated lab.
-- **Capture with keys.** Record pcaps alongside an SSLKEYLOGFILE so analysts can see both the encrypted view your sensors get and the decrypted truth.
+- **Measure, don't guess.** The [detection lab](07-detection-lab.md) generates labeled QUIC C2-like and benign traffic, captures it, runs Zeek and Suricata, and reports precision and recall for every detection.
+- **Emulate the real threats.** Most in-the-wild QUIC C2 is Go on quic-go. The [beacon simulator](06-beacon-simulator.md) uses the same stack. For validation against a real framework, see [Emulating Merlin in a lab](08-merlin-lab-guide.md), and run it only on isolated infrastructure.
+- **Capture with keys.** Record pcaps alongside an SSLKEYLOGFILE (the simulator's `-keylog`) so analysts can see both the encrypted view your sensors get and the decrypted truth.
 - **Keep ground truth.** Label which flows are malicious so you can measure precision and recall, not just "it fired once."
 - **Mix in realistic background traffic.** Detections that look perfect against a quiet lab often fall apart against real browser QUIC. QUIC-Exfil's results show that class imbalance can make a weak detector look accurate.
 - **Don't write production JA4 rules from lab fingerprints alone.** Fingerprints vary with library version and build settings. Use lab fingerprints to understand the method, and threat intel for the rules.

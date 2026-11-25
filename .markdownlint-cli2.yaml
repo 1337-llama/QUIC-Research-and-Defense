@@ -1,0 +1,12 @@
+config:
+  default: true
+  MD013: false          # long lines: prose and tables read better unwrapped
+  MD024:
+    siblings_only: true # repeated headings are fine in different sections
+  MD029: false          # chapter numbering deliberately continues across sections
+  MD033: false          # inline HTML is occasionally needed in tables
+  MD060: false          # table pipe alignment is cosmetic
+ignores:
+  - "**/testdata/**"
+  - ".github/pull_request_template.md"  # GitHub renders it inside a PR body
+  - "lab/harness/out/**"

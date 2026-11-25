@@ -1,0 +1,9 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	notice
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	note	msg
+#types	time	string	addr	port	addr	port	enum	string
+1795435560.250000	Ca1	172.28.0.30	50001	172.28.0.10	443	QUICHunt::Long_QUIC_Connection	QUIC connection lasted 6.0 mins
+1795435600.000000	-	-	-	-	-	QUICHunt::Summary	no endpoints

@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Runs the detection lab end to end:
+#   1. build the lab image and start the lab servers and packet capture
+#   2. run the malicious and benign traffic profiles for LAB_DURATION
+#   3. analyze the capture with Zeek and Suricata
+#   4. run the reference detectors and score every detection against
+#      ground truth
+#
+# Extra arguments are passed to `detscore score`, e.g. CI gates:
+#   lab/harness/run.sh -require '(any):recall>=0.95'
+#
+# Environment:
+#   LAB_DURATION  how long each simulator runs (default 6m)
+#   LAB_OUT       output directory (default lab/harness/out)
+#   LAB_KEEP      set to 1 to leave containers running for inspection
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$here"
+
+export LAB_DURATION="${LAB_DURATION:-6m}"
+export LAB_OUT="${LAB_OUT:-$here/out}"
+LAB_UID="$(id -u)"
+LAB_GID="$(id -g)"
+export LAB_UID LAB_GID
+
+sims=(sim-merlin sim-quicagent bg-browser-1 bg-browser-2)
+
+compose() { docker compose -f "$here/compose.yaml" --profile analyze "$@"; }
+log() { printf '\n==> %s\n' "$*"; }
+
+cleanup() {
+  if [[ "${LAB_KEEP:-0}" != 1 ]]; then
+    compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
+if [[ "$(uname -s)" != Linux ]]; then
+  echo "run.sh needs a Linux Docker host: the capture sniffs the lab bridge from the host network namespace." >&2
+  exit 1
+fi
+
+rm -rf "$LAB_OUT"
+mkdir -p "$LAB_OUT/zeek" "$LAB_OUT/suricata" "$LAB_OUT/shared"
+
+# On failure, show the container logs inline (CI job logs are often easier
+# to reach than uploaded artifacts).
+show_logs() {
+  echo "---- lab server logs (last 40 lines) ----" >&2
+  compose logs --no-log-prefix --tail 40 c2 cdn >&2 || true
+  echo "---- simulator logs (last 60 lines) ----" >&2
+  tail -n 60 "$LAB_OUT/simulators.log" >&2 || true
+}
+
+log "Building the lab image"
+compose build tools
+
+log "Starting lab servers and capture"
+compose up -d c2 cdn capture
+for cert in c2 cdn; do
+  for _ in $(seq 1 30); do
+    [[ -s "$LAB_OUT/shared/$cert.pem" ]] && break
+    sleep 1
+  done
+  if [[ ! -s "$LAB_OUT/shared/$cert.pem" ]]; then
+    echo "lab server $cert did not publish its certificate" >&2
+    show_logs
+    exit 1
+  fi
+done
+
+log "Running traffic profiles for $LAB_DURATION"
+compose up --no-deps --no-log-prefix "${sims[@]}" >"$LAB_OUT/simulators.log" 2>&1
+for s in "${sims[@]}"; do
+  id="$(compose ps -aq "$s")"
+  code="$(docker inspect -f '{{.State.ExitCode}}' "$id")"
+  if [[ "$code" != 0 ]]; then
+    echo "$s exited with status $code; see $LAB_OUT/simulators.log" >&2
+    show_logs
+    exit 1
+  fi
+done
+
+log "Stopping capture"
+sleep 2
+compose stop capture
+compose logs c2 cdn >"$LAB_OUT/servers.log" 2>&1
+if [[ ! -s "$LAB_OUT/lab.pcap" ]]; then
+  echo "capture is empty" >&2
+  exit 1
+fi
+
+log "Analyzing with Zeek"
+compose run --rm zeek
+
+log "Analyzing with Suricata"
+compose run --rm suricata
+
+log "Running reference detectors"
+compose run --rm tools detscore detect \
+  -conn /out/zeek/conn.log -quic /out/zeek/quic.log \
+  -long-connection 3m -approved 172.28.0.20/32 -out /out/alerts.jsonl
+
+truth_args=()
+for f in "$LAB_OUT"/truth-*.jsonl; do
+  truth_args+=(-truth "/out/$(basename "$f")")
+done
+notice_args=()
+if [[ -f "$LAB_OUT/zeek/notice.log" ]]; then
+  notice_args=(-notice /out/zeek/notice.log)
+fi
+
+log "Scoring detections against ground truth"
+compose run --rm tools detscore score "${truth_args[@]}" \
+  -alerts /out/alerts.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
+  -out /out/report.txt
+cat "$LAB_OUT/report.txt"
+
+# The JSON report also applies any gates passed to this script (exit 3 if
+# one fails), after the human-readable report has been printed.
+compose run --rm tools detscore score "${truth_args[@]}" \
+  -alerts /out/alerts.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
+  -format json -out /out/report.json "$@"
+
+log "Done. Capture, TLS key logs, sensor logs and reports are in $LAB_OUT"
