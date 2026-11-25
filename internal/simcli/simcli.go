@@ -129,7 +129,7 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 		return ClientOptions{}, fmt.Errorf("-run-id: %w", err)
 	}
 	if o.Seed == 0 {
-		o.Seed = uint64(t.UnixNano()) //nolint:gosec // G115: wall-clock nanoseconds are positive; any value is a valid seed
+		o.Seed = uint64(t.UnixNano())
 	}
 	return o, nil
 }
