@@ -142,7 +142,9 @@ func (t *Transport) Open(ctx context.Context) (beacon.Session, error) {
 
 	dctx, cancel := context.WithTimeout(ctx, t.cfg.HandshakeTimeout)
 	defer cancel()
-	conn, err := qt.DialEarly(dctx, net.UDPAddrFromAddrPort(remote), t.tlsConf.Clone(), t.quicConf.Clone())
+	// Dial (not DialEarly): the handshake, including certificate
+	// verification, completes before the session is handed out.
+	conn, err := qt.Dial(dctx, net.UDPAddrFromAddrPort(remote), t.tlsConf.Clone(), t.quicConf.Clone())
 	if err != nil {
 		_ = qt.Close()
 		_ = pc.Close()
@@ -166,12 +168,10 @@ func (t *Transport) Open(ctx context.Context) (beacon.Session, error) {
 			Remote: remote,
 		},
 	}
-	s.h3 = &http3.Transport{
-		// Hand http3 the connection we already dialed, exactly once, so
-		// every request in this session shares one QUIC connection.
-		Dial: s.dialOnce,
-	}
-	s.client = &http.Client{Transport: s.h3}
+	// Run HTTP/3 over the connection we already dialed, so every request in
+	// this session shares one QUIC connection and one UDP socket.
+	s.h3 = &http3.Transport{}
+	s.client = &http.Client{Transport: s.h3.NewClientConn(conn)}
 	return s, nil
 }
 
@@ -191,7 +191,7 @@ func sourceAddrFor(remote netip.AddrPort) (netip.Addr, error) {
 }
 
 type session struct {
-	conn    quic.EarlyConnection
+	conn    *quic.Conn
 	qt      *quic.Transport
 	pc      *net.UDPConn
 	h3      *http3.Transport
@@ -200,18 +200,7 @@ type session struct {
 	baseURL string
 
 	mu     sync.Mutex
-	dialed bool
 	closed bool
-}
-
-func (s *session) dialOnce(context.Context, string, *tls.Config, *quic.Config) (quic.EarlyConnection, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dialed || s.closed {
-		return nil, ErrSessionClosed
-	}
-	s.dialed = true
-	return s.conn, nil
 }
 
 func (s *session) Info() beacon.SessionInfo { return s.info }
