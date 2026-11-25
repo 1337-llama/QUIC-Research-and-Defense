@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Run the lab
         env:
           LAB_DURATION: ${{ inputs.duration || '6m' }}
@@ -57,7 +57,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload lab outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lab-outputs
           path: lab/harness/out/
