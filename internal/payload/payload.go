@@ -19,8 +19,28 @@ import (
 // Marker identifies simulator traffic to anyone who can see inside it.
 const Marker = "quic-research/beaconsim"
 
-// MaxBodyBytes bounds every body this package will decode.
+// MaxBodyBytes bounds every body this package will build or decode.
 const MaxBodyBytes = 2 << 20
+
+// MaxRunIDLen bounds run identifiers.
+const MaxRunIDLen = 128
+
+// ValidRunID reports whether id is an acceptable run identifier: 1 to
+// MaxRunIDLen characters from [A-Za-z0-9._:-]. Keeping run IDs to a plain
+// alphabet means they are safe to log and to use in file names.
+func ValidRunID(id string) error {
+	if id == "" || len(id) > MaxRunIDLen {
+		return fmt.Errorf("run id must be 1-%d characters", MaxRunIDLen)
+	}
+	for _, c := range id {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '.', c == '_', c == ':', c == '-':
+		default:
+			return fmt.Errorf("run id %q may only contain letters, digits, '.', '_', ':' and '-'", id)
+		}
+	}
+	return nil
+}
 
 // Beacon is the client-to-server request body.
 type Beacon struct {
@@ -44,6 +64,12 @@ type Ack struct {
 // unpadded beacon, the beacon is sent unpadded. Padding bytes are read from
 // rnd, which should be a fast, high-entropy source.
 func NewBeacon(run string, seq uint64, sent time.Time, targetSize int, rnd io.Reader) (Beacon, []byte, error) {
+	if targetSize < 0 || targetSize > MaxBodyBytes {
+		return Beacon{}, nil, fmt.Errorf("target size %d must be between 0 and %d", targetSize, MaxBodyBytes)
+	}
+	if err := ValidRunID(run); err != nil {
+		return Beacon{}, nil, err
+	}
 	b := Beacon{Sim: Marker, Run: run, Seq: seq, Sent: sent.UTC()}
 	base, err := json.Marshal(b)
 	if err != nil {
@@ -56,7 +82,9 @@ func NewBeacon(run string, seq uint64, sent time.Time, targetSize int, rnd io.Re
 	if room < 4 {
 		return b, base, nil
 	}
-	b.Pad = make([]byte, room/4*3)
+	// room <= targetSize <= MaxBodyBytes, so this cannot overflow.
+	padLen := room / 4 * 3
+	b.Pad = make([]byte, padLen)
 	if _, err := io.ReadFull(rnd, b.Pad); err != nil {
 		return Beacon{}, nil, fmt.Errorf("reading padding: %w", err)
 	}
@@ -106,7 +134,7 @@ func checkCommon(sim, run string) error {
 	if run == "" {
 		return errors.New("missing run id")
 	}
-	return nil
+	return ValidRunID(run)
 }
 
 func decodeStrict(data []byte, v any) error {

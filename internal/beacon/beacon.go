@@ -168,6 +168,8 @@ func newRunner(cfg Config) (*runner, error) {
 	switch {
 	case cfg.RunID == "":
 		return nil, errors.New("beacon: RunID is required")
+	case payload.ValidRunID(cfg.RunID) != nil:
+		return nil, fmt.Errorf("beacon: %w", payload.ValidRunID(cfg.RunID))
 	case cfg.Transport == nil:
 		return nil, errors.New("beacon: Transport is required")
 	case cfg.Duration < 0:

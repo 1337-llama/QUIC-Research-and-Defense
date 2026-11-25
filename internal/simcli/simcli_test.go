@@ -104,6 +104,7 @@ func TestParseClientErrors(t *testing.T) {
 		"unknown flag":        {"-bogus"},
 		"positional argument": {"-target", "a:1", "-ca", "c", "-profile", "merlin-like", "extra"},
 		"negative ca-wait":    {"-target", "a:1", "-ca", "c", "-profile", "merlin-like", "-ca-wait", "-1s"},
+		"bad run id":          {"-target", "a:1", "-ca", "c", "-profile", "merlin-like", "-run-id", "bad id"},
 	}
 	for name, args := range tests {
 		if _, err := parseClient(t, args...); err == nil {

@@ -85,6 +85,37 @@ func TestNewBeaconPropagatesRandomErrors(t *testing.T) {
 	}
 }
 
+func TestNewBeaconRejectsBadInput(t *testing.T) {
+	t.Parallel()
+	for _, size := range []int{-1, MaxBodyBytes + 1, int(^uint(0) >> 1)} {
+		if _, _, err := NewBeacon("r", 1, t0, size, rng()); err == nil {
+			t.Errorf("target size %d accepted", size)
+		}
+	}
+	if _, body, err := NewBeacon("r", 1, t0, MaxBodyBytes, rng()); err != nil || len(body) > MaxBodyBytes {
+		t.Errorf("max target size: %d bytes, %v", len(body), err)
+	}
+	for _, run := range []string{"", "a b", "line\nbreak", "x\x1b[31m", strings.Repeat("a", MaxRunIDLen+1)} {
+		if _, _, err := NewBeacon(run, 1, t0, 0, rng()); err == nil {
+			t.Errorf("run id %q accepted", run)
+		}
+	}
+}
+
+func TestValidRunID(t *testing.T) {
+	t.Parallel()
+	for _, ok := range []string{"merlin", "browser-1", "merlin-like-1800000000", "a.b_c:d", strings.Repeat("z", MaxRunIDLen)} {
+		if err := ValidRunID(ok); err != nil {
+			t.Errorf("ValidRunID(%q) = %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "has space", "new\nline", "tab\t", "slash/", "ünïcode", strings.Repeat("z", MaxRunIDLen+1)} {
+		if err := ValidRunID(bad); err == nil {
+			t.Errorf("ValidRunID(%q) accepted", bad)
+		}
+	}
+}
+
 func TestDecodeBeaconErrors(t *testing.T) {
 	t.Parallel()
 	good, _ := json.Marshal(Beacon{Sim: Marker, Run: "r", Seq: 1, Sent: t0})
@@ -93,6 +124,7 @@ func TestDecodeBeaconErrors(t *testing.T) {
 		"not json":      []byte("hello"),
 		"wrong marker":  []byte(`{"sim":"other","run":"r","seq":1,"sent":"2026-11-23T12:00:00Z"}`),
 		"no run":        []byte(`{"sim":"` + Marker + `","seq":1,"sent":"2026-11-23T12:00:00Z"}`),
+		"bad run":       []byte(`{"sim":"` + Marker + `","run":"a\nb","seq":1,"sent":"2026-11-23T12:00:00Z"}`),
 		"unknown field": []byte(`{"sim":"` + Marker + `","run":"r","seq":1,"sent":"2026-11-23T12:00:00Z","cmd":"x"}`),
 		"trailing":      append(append([]byte{}, good...), []byte(` {}`)...),
 		"too large":     bytes.Repeat([]byte(" "), MaxBodyBytes+1),
@@ -146,7 +178,7 @@ func FuzzDecodeBeacon(f *testing.F) {
 		if err != nil {
 			return
 		}
-		if b.Sim != Marker || b.Run == "" {
+		if b.Sim != Marker || ValidRunID(b.Run) != nil {
 			t.Fatalf("accepted invalid beacon %+v", b)
 		}
 		// An accepted beacon must re-encode to something that decodes again.

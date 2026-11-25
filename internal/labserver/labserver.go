@@ -12,9 +12,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/1337-llama/quic_research/internal/payload"
 )
@@ -108,7 +110,8 @@ func (h *Handler) handleBeacon(w http.ResponseWriter, r *http.Request) {
 		h.runs[b.Run] = b.Seq
 	}
 	h.mu.Unlock()
-	h.log.Info("beacon", "run_id", b.Run, "seq", b.Seq, "path", r.URL.Path, "remote", r.RemoteAddr, "bytes", len(body))
+	h.log.Info("beacon", "run_id", logSafe(b.Run), "seq", b.Seq, "path", logSafe(r.URL.Path),
+		"remote", logSafe(r.RemoteAddr), "bytes", len(body))
 
 	ack, err := json.Marshal(payload.NewAck(b, h.now()))
 	if err != nil { // cannot happen for this struct, but never ignore errors
@@ -125,6 +128,28 @@ func (h *Handler) reject(w http.ResponseWriter, r *http.Request, code int, err e
 	if errors.As(err, &mbe) {
 		code = http.StatusRequestEntityTooLarge
 	}
-	h.log.Warn("rejected request", "remote", r.RemoteAddr, "path", r.URL.Path, "status", code, "error", err)
+	h.log.Warn("rejected request", "remote", logSafe(r.RemoteAddr), "path", logSafe(r.URL.Path),
+		"status", code, "error", logSafe(err.Error()))
 	http.Error(w, http.StatusText(code), code)
+}
+
+// maxLogValue bounds client-controlled values in log entries.
+const maxLogValue = 256
+
+// logSafe neutralizes client-controlled text before it is logged: line
+// breaks (which could forge log entries in line-oriented logs) and other
+// control characters are removed, and the value is truncated.
+func logSafe(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+	if len(s) > maxLogValue {
+		s = s[:maxLogValue] + "...(truncated)"
+	}
+	return s
 }

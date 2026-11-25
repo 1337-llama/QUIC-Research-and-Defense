@@ -17,6 +17,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/1337-llama/quic_research/internal/payload"
 	"github.com/1337-llama/quic_research/internal/profile"
 	"github.com/1337-llama/quic_research/internal/safety"
 )
@@ -123,6 +124,9 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	t := now()
 	if o.RunID == "" {
 		o.RunID = fmt.Sprintf("%s-%d", o.Profile.Name, t.Unix())
+	}
+	if err := payload.ValidRunID(o.RunID); err != nil {
+		return ClientOptions{}, fmt.Errorf("-run-id: %w", err)
 	}
 	if o.Seed == 0 {
 		o.Seed = uint64(t.UnixNano()) //nolint:gosec // G115: wall-clock nanoseconds are positive; any value is a valid seed

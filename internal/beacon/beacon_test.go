@@ -523,6 +523,7 @@ func TestConfigValidation(t *testing.T) {
 	tests := map[string]func(*Config){
 		"invalid profile":   func(c *Config) { c.Profile.Name = "" },
 		"no run id":         func(c *Config) { c.RunID = "" },
+		"bad run id":        func(c *Config) { c.RunID = "has space" },
 		"no transport":      func(c *Config) { c.Transport = nil },
 		"negative duration": func(c *Config) { c.Duration = -1 },
 		"negative failures": func(c *Config) { c.MaxConsecutiveFailures = -1 },

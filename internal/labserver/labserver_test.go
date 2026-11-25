@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
@@ -173,5 +174,34 @@ func TestConcurrentBeacons(t *testing.T) {
 	}
 	if h.Runs()["r"] != 20 {
 		t.Fatalf("Runs = %v", h.Runs())
+	}
+}
+
+func TestLogSafe(t *testing.T) {
+	t.Parallel()
+	tests := map[string]string{
+		"plain":                  "plain",
+		"/a\nfake=entry":         "/afake=entry",
+		"x\r\ny":                 "xy",
+		"esc\x1b[31mred\x00":     "esc[31mred",
+		strings.Repeat("a", 300): strings.Repeat("a", 256) + "...(truncated)",
+	}
+	for in, want := range tests {
+		if got := logSafe(in); got != want {
+			t.Errorf("logSafe(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestClientInputCannotForgeLogLines(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	h := New(slog.New(slog.NewTextHandler(&buf, nil)), nil)
+	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader("garbage"))
+	req.URL.Path = "/x\nlevel=ERROR msg=forged"
+	req.RemoteAddr = "10.0.0.1:1\r\nlevel=ERROR"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if n := strings.Count(buf.String(), "\n"); n != 1 {
+		t.Fatalf("one request produced %d log lines:\n%s", n, buf.String())
 	}
 }
