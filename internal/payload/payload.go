@@ -75,17 +75,17 @@ func NewBeacon(run string, seq uint64, sent time.Time, targetSize int, rnd io.Re
 	if err != nil {
 		return Beacon{}, nil, fmt.Errorf("encoding beacon: %w", err)
 	}
+	// Bound the marshaled size before deriving an allocation size from it.
+	// (Run IDs are short, so this cannot fail in practice.)
+	if len(base) > MaxBodyBytes {
+		return Beacon{}, nil, fmt.Errorf("encoded beacon is %d bytes, limit is %d", len(base), MaxBodyBytes)
+	}
 	// A non-empty pad adds `,"pad":""` (9 bytes) plus base64 text, which is
 	// 4 bytes for every 3 bytes of padding.
 	const padOverhead = len(`,"pad":""`)
 	room := targetSize - len(base) - padOverhead
 	if room < 4 {
 		return b, base, nil
-	}
-	// Already implied by the targetSize check above; kept explicit so the
-	// bound on the allocation below is local and obvious.
-	if room > MaxBodyBytes {
-		return Beacon{}, nil, fmt.Errorf("padding room %d exceeds %d", room, MaxBodyBytes)
 	}
 	padLen := room / 4 * 3
 	b.Pad = make([]byte, padLen)
