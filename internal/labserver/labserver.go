@@ -12,6 +12,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -110,7 +111,9 @@ func (h *Handler) handleBeacon(w http.ResponseWriter, r *http.Request) {
 		h.runs[b.Run] = b.Seq
 	}
 	h.mu.Unlock()
-	h.log.Info("beacon", "run_id", logSafe(b.Run), "seq", b.Seq, "path", logSafe(r.URL.Path),
+	// Every request-derived value goes through logSafe, numbers included, so
+	// the rule is uniform and easy to audit.
+	h.log.Info("beacon", "run_id", logSafe(b.Run), "seq", logSafe(strconv.FormatUint(b.Seq, 10)), "path", logSafe(r.URL.Path),
 		"remote", logSafe(r.RemoteAddr), "bytes", len(body))
 
 	ack, err := json.Marshal(payload.NewAck(b, h.now()))

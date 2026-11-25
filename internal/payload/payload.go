@@ -82,7 +82,11 @@ func NewBeacon(run string, seq uint64, sent time.Time, targetSize int, rnd io.Re
 	if room < 4 {
 		return b, base, nil
 	}
-	// room <= targetSize <= MaxBodyBytes, so this cannot overflow.
+	// Already implied by the targetSize check above; kept explicit so the
+	// bound on the allocation below is local and obvious.
+	if room > MaxBodyBytes {
+		return Beacon{}, nil, fmt.Errorf("padding room %d exceeds %d", room, MaxBodyBytes)
+	}
 	padLen := room / 4 * 3
 	b.Pad = make([]byte, padLen)
 	if _, err := io.ReadFull(rnd, b.Pad); err != nil {
