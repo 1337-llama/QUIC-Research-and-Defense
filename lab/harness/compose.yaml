@@ -79,7 +79,7 @@ services:
 
   # Packet capture of the lab bridge (UDP only).
   capture:
-    image: nicolaka/netshoot:v0.13
+    image: nicolaka/netshoot:v0.16
     network_mode: host
     cap_add: [NET_ADMIN, NET_RAW]
     command: [tcpdump, -i, qrlab0, -U, -n, -w, /out/lab.pcap, udp]
