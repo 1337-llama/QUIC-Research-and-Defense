@@ -1,10 +1,10 @@
 module github.com/1337-llama/quic_research/lab
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/1337-llama/quic_research v0.0.0-00010101000000-000000000000
-	github.com/quic-go/quic-go v0.59.1
+	github.com/quic-go/quic-go v0.65.0
 )
 
 require (
