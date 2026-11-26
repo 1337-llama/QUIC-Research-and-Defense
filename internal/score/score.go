@@ -228,6 +228,20 @@ func WriteText(w io.Writer, r Report) error {
 	return tw.Flush()
 }
 
+// ReadJSON parses a report written by WriteJSON.
+func ReadJSON(r io.Reader) (Report, error) {
+	var rep Report
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&rep); err != nil {
+		return Report{}, fmt.Errorf("score: reading report: %w", err)
+	}
+	if rep.Sessions != rep.Malicious+rep.Benign {
+		return Report{}, fmt.Errorf("score: report has %d sessions but %d malicious + %d benign", rep.Sessions, rep.Malicious, rep.Benign)
+	}
+	return rep, nil
+}
+
 // WriteJSON writes the report as indented JSON.
 func WriteJSON(w io.Writer, r Report) error {
 	enc := json.NewEncoder(w)

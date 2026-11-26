@@ -225,3 +225,25 @@ func TestCheck(t *testing.T) {
 		t.Errorf("errs = %v", errs)
 	}
 }
+
+func TestReadJSON(t *testing.T) {
+	t.Parallel()
+	rep := Report{Sessions: 2, Malicious: 1, Benign: 1, Results: []Result{{Detector: AnyDetector, TP: 1, Precision: 1, Recall: 1, F1: 1}}}
+	var buf bytes.Buffer
+	if err := WriteJSON(&buf, rep); err != nil {
+		t.Fatal(err)
+	}
+	back, err := ReadJSON(&buf)
+	if err != nil || back.Sessions != 2 || len(back.Results) != 1 || back.Results[0].F1 != 1 {
+		t.Fatalf("round trip = %+v, %v", back, err)
+	}
+	for name, in := range map[string]string{
+		"not json":      "[",
+		"unknown field": `{"sessions":0,"extra":1}`,
+		"inconsistent":  `{"sessions":3,"malicious":1,"benign":1}`,
+	} {
+		if _, err := ReadJSON(strings.NewReader(in)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}

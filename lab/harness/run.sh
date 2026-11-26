@@ -13,6 +13,10 @@
 #   LAB_DURATION  how long each simulator runs (default 6m)
 #   LAB_OUT       output directory (default lab/harness/out)
 #   LAB_KEEP      set to 1 to leave containers running for inspection
+#   LAB_EXERCISE  set to 1 to build an analyst exercise: client addresses,
+#                 seeds and C2 names are randomized, and the outputs are split
+#                 into exercise/ (capture and Zeek logs) and answer-key/
+#                 (ground truth and everything derived from it)
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +37,22 @@ case "$LAB_DURATION" in
   *) echo "LAB_DURATION must look like 90s, 6m or 1h (got $LAB_DURATION)" >&2; exit 2 ;;
 esac
 export LAB_SECONDS
+
+if [[ "${LAB_EXERCISE:-0}" == 1 ]]; then
+  # Shuffle the client addresses so the answer can't be read off
+  # compose.yaml, give every simulator a fresh seed, and use C2 names that
+  # don't announce themselves.
+  mapfile -t octets < <(shuf -i 100-249 -n 8)
+  export LAB_IP_MERLIN="172.28.0.${octets[0]}" LAB_IP_QUICAGENT="172.28.0.${octets[1]}" \
+    LAB_IP_FALLBACK="172.28.0.${octets[2]}" LAB_IP_LOWSLOW="172.28.0.${octets[3]}" \
+    LAB_IP_ROTATING="172.28.0.${octets[4]}" LAB_IP_BROWSER1="172.28.0.${octets[5]}" \
+    LAB_IP_BROWSER2="172.28.0.${octets[6]}" LAB_IP_CHROMIUM="172.28.0.${octets[7]}"
+  for v in MERLIN QUICAGENT FALLBACK LOWSLOW ROTATING BROWSER1 BROWSER2; do
+    export "LAB_SEED_$v=$(shuf -i 1-2000000000 -n 1)"
+  done
+  export LAB_C2_NAME="${LAB_C2_NAME:-updates.corp-tools.lab}" LAB_C2TCP_NAME="${LAB_C2TCP_NAME:-sync.corp-tools.lab}"
+fi
+chromium_ip="${LAB_IP_CHROMIUM:-172.28.0.50}"
 
 sims=(sim-merlin sim-quicagent sim-fallback sim-lowslow sim-rotating bg-browser-1 bg-browser-2 bg-chromium)
 
@@ -112,7 +132,7 @@ compose run --rm suricata
 log "Labeling the real browser's connections from conn.log"
 # Chromium writes no ground truth, but everything it sends goes to the CDN
 # from its own address, so its conn.log entries are its sessions.
-compose run --rm tools detscore label -conn /out/zeek/conn.log -host 172.28.0.50 \
+compose run --rm tools detscore label -conn /out/zeek/conn.log -host "$chromium_ip" \
   -label benign -profile chromium -run-id chromium -out /out/truth-chromium.jsonl
 chromium_sessions="$(wc -l <"$LAB_OUT/truth-chromium.jsonl")"
 echo "chromium sessions: $chromium_sessions"
@@ -139,7 +159,11 @@ done
 
 log "JA4 fingerprints by client"
 compose run --rm tools detscore ja4 -eve /out/suricata/eve.json "${truth_args[@]}" -out /out/ja4.txt
-cat "$LAB_OUT/ja4.txt"
+# The JA4 summary names each client's profile, so an exercise keeps it in
+# the answer key instead of printing it to a (possibly shared) CI log.
+if [[ "${LAB_EXERCISE:-0}" != 1 ]]; then
+  cat "$LAB_OUT/ja4.txt"
+fi
 notice_args=()
 if [[ -f "$LAB_OUT/zeek/notice.log" ]]; then
   notice_args=(-notice /out/zeek/notice.log)
@@ -152,9 +176,19 @@ compose run --rm tools detscore score "${truth_args[@]}" \
 cat "$LAB_OUT/report.txt"
 
 # The JSON report also applies any gates passed to this script (exit 3 if
-# one fails), after the human-readable report has been printed.
+# one fails), after the human-readable report has been printed. An exercise
+# is still packaged when a gate fails.
+gate_status=0
 compose run --rm tools detscore score "${truth_args[@]}" \
   -alerts /out/alerts.jsonl -alerts /out/cadence.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
-  -format json -out /out/report.json "$@"
+  -format json -out /out/report.json "$@" || gate_status=$?
 
+if [[ "${LAB_EXERCISE:-0}" == 1 ]]; then
+  log "Packaging the analyst exercise"
+  "$here/package-exercise.sh" "$LAB_OUT"
+fi
+
+if [[ "$gate_status" != 0 ]]; then
+  exit "$gate_status"
+fi
 log "Done. Capture, TLS key logs, sensor logs and reports are in $LAB_OUT"

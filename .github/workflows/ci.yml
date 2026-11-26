@@ -179,7 +179,7 @@ jobs:
       - name: Compose file is valid
         run: docker compose -f lab/harness/compose.yaml --profile analyze config -q
       - name: Shellcheck
-        run: shellcheck lab/harness/run.sh lab/harness/chromium/browse.sh scripts/*.sh
+        run: shellcheck lab/harness/run.sh lab/harness/package-exercise.sh lab/harness/chromium/browse.sh scripts/*.sh
 
   docs:
     name: Markdown

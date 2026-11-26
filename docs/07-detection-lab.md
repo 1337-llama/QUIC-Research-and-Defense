@@ -136,14 +136,17 @@ The Zeek script in [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic
 The lab enables JA4 in Suricata, and `detscore ja4` groups the fingerprints it sees by client, naming the profiles that produced each one:
 
 ```text
-PROTO  JA4                                   EVENTS  PROFILES                                                    CLIENTS ...
-quic   q13d0311h3_55b375c5d22e_cd85d2d88918  3       browser-like (benign), merlin-like (malicious), ...
-quic   q13d0313h3_55b375c5d22e_dea6d13ecaaf  1       chromium (benign)                                          ...
+PROTO  JA4                                   EVENTS  PROFILES                                              SNI
+quic   q13d0311h3_55b375c5d22e_653d80c3fe9d  12      chromium (benign)                                     cdn
+quic   q13d0313h3_55b375c5d22e_f902b76752af  65      browser-like (benign), low-and-slow (malicious),      c2,c2-tcp,cdn
+                                                     merlin-like (malicious), quicagent-like (malicious),
+                                                     rotating-session (malicious)
+tls    t13d1312h2_f57a46bbacb6_ab7e3b40a677  11      quicagent-like (malicious)                            c2-tcp
 ```
 
-These values are illustrative; real ones depend on library versions.
+This is from a CI run of the lab (Chromium 159, quic-go 0.65, Go 1.26), trimmed to fit. Your values depend on those versions.
 
-The lesson is in the grouping. Every simulator profile, malicious or benign, shares one fingerprint, because JA4 identifies the **TLS/QUIC library and its configuration**, not intent. A real browser has a different one. JA4 is therefore excellent for spotting *non-browser software* speaking QUIC, which is the Tier 2 detection in [chapter 4](04-detection-guide.md#tier-2-handshake-from-the-decryptable-client-initial), and useless for telling good Go programs from bad ones. Don't write production rules from lab fingerprints.
+The lesson is in the grouping. Every simulator profile, malicious or benign, shares one fingerprint, because JA4 identifies the **TLS/QUIC library and its configuration**, not intent. The real browser has a different one. The fallback beacon shows up a third time, as a Go `crypto/tls` fingerprint on TCP. JA4 is therefore excellent for spotting *non-browser software* speaking QUIC, which is the Tier 2 detection in [chapter 4](04-detection-guide.md#tier-2-handshake-from-the-decryptable-client-initial), and useless for telling good Go programs from bad ones. Don't write production rules from lab fingerprints.
 
 ## 7.7 Scoring your own detections
 

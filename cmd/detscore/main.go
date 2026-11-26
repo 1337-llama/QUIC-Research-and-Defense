@@ -9,6 +9,8 @@
 //	detscore label   -conn conn.log -host IP -label benign|malicious -profile NAME -run-id ID
 //	detscore ja4     -eve eve.json [-truth truth.jsonl]
 //	detscore score   -truth truth.jsonl [-alerts a.jsonl] [-eve eve.json] [-notice notice.log] [flags]
+//	detscore grade   -truth truth.jsonl -answers answers.txt
+//	detscore trend   -history history.jsonl [-report report.json -commit SHA] -out-dir DIR
 package main
 
 import (
@@ -57,6 +59,9 @@ Usage:
                                                                ground truth for known hosts (real browsers, real C2)
   detscore ja4     -eve eve.json [-truth truth.jsonl]          JA4 fingerprints by client
   detscore score   -truth truth.jsonl [-alerts alerts.jsonl] [-eve eve.json] [-notice notice.log] [flags]
+  detscore grade   -truth truth.jsonl -answers answers.txt     grade an analyst's exercise answers
+  detscore trend   -history h.jsonl [-report r.json -commit SHA] -out-dir DIR
+                                                               results history and dashboard
 
 Run "detscore <command> -h" for a command's flags.
 
@@ -80,6 +85,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = runLabel(args[1:], stdout, stderr)
 	case "ja4":
 		err = runJA4(args[1:], stdout, stderr)
+	case "grade":
+		err = runGrade(args[1:], stdout, stderr)
+	case "trend":
+		err = runTrend(args[1:], stdout, stderr)
 	case "-h", "-help", "--help", "help":
 		fmt.Fprint(stdout, usage)
 		return exitOK

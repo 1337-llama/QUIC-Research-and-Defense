@@ -26,6 +26,10 @@ flowchart TB
     detect --> score
     eve --> score
     groundtruth --> score
+    groundtruth --> grade
+    grade --> detscore
+    score --> trend
+    trend --> detscore
     score --> detscore["cmd/detscore"]
     detect --> detscore
   end
@@ -95,4 +99,4 @@ CI enforces at least **90%** statement coverage on the core module, which curren
 
 ---
 
-**Previous:** [8. Emulating Merlin in a lab](08-merlin-lab-guide.md) · **Next:** [References](references.md)
+**Previous:** [8. Emulating Merlin in a lab](08-merlin-lab-guide.md) · **Next:** [10. Analyst exercises and results dashboard](10-analyst-exercises.md)
