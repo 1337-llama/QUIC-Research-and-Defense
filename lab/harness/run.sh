@@ -114,7 +114,13 @@ log "Labeling the real browser's connections from conn.log"
 # from its own address, so its conn.log entries are its sessions.
 compose run --rm tools detscore label -conn /out/zeek/conn.log -host 172.28.0.50 \
   -label benign -profile chromium -run-id chromium -out /out/truth-chromium.jsonl
-echo "chromium sessions: $(wc -l <"$LAB_OUT/truth-chromium.jsonl")"
+chromium_sessions="$(wc -l <"$LAB_OUT/truth-chromium.jsonl")"
+echo "chromium sessions: $chromium_sessions"
+if [[ "$chromium_sessions" -eq 0 ]]; then
+  echo "the browser produced no QUIC or TLS connections; the scenario is broken" >&2
+  compose logs --no-log-prefix --tail 40 bg-chromium cdn >&2 || true
+  exit 1
+fi
 
 log "Running reference detectors"
 # -include-tls: the fallback profile beacons over HTTPS on TCP, and the
