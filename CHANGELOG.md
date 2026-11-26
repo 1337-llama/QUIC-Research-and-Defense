@@ -4,6 +4,10 @@ Notable changes to this project. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Fixed
+
+- The results dashboard says "last run", not "last 1 runs".
+
 ## [0.1.0] - 2026-11-26
 
 The first tagged release.

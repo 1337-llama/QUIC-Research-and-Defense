@@ -167,6 +167,9 @@ func TestRenderSVGEdgeCases(t *testing.T) {
 	}
 	one := RenderSVG([]Entry{entry(0, 1)}, Detectors([]Entry{entry(0, 1)}))
 	wellFormed(t, one)
+	if !strings.Contains(string(one), "per detector, last run<") {
+		t.Error("single-run title")
+	}
 	if strings.Contains(string(one), "<polyline") {
 		t.Error("a single run should draw dots, not lines")
 	}
@@ -184,7 +187,7 @@ func TestRenderMarkdown(t *testing.T) {
 	md := buf.String()
 	for _, want := range []string{
 		"gates **failed**", "| `(any)` | 1.000 | 0.900 | 0.900 | -0.100 |", "| `long-connection` | 1.000 | 0.040 | 0.077 | 0 |",
-		"`new\\|detector`", "| new |", "![Precision and recall per detector over the last 2 runs](trend.svg)",
+		"`new\\|detector`", "| new |", "![Precision and recall per detector, last 2 runs](trend.svg)",
 		"`not-a-s`", "[log](https://github.com/o/r/actions/runs/1)",
 	} {
 		if !strings.Contains(md, want) {
