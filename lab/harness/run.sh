@@ -102,10 +102,17 @@ compose run --rm tools detscore detect \
   -conn /out/zeek/conn.log -quic /out/zeek/quic.log \
   -long-connection 3m -approved 172.28.0.20/32 -out /out/alerts.jsonl
 
+log "Detecting beaconing inside single connections (packet timing)"
+compose run --rm tools detscore cadence -pcap /out/lab.pcap -out /out/cadence.jsonl
+
 truth_args=()
 for f in "$LAB_OUT"/truth-*.jsonl; do
   truth_args+=(-truth "/out/$(basename "$f")")
 done
+
+log "JA4 fingerprints by client"
+compose run --rm tools detscore ja4 -eve /out/suricata/eve.json "${truth_args[@]}" -out /out/ja4.txt
+cat "$LAB_OUT/ja4.txt"
 notice_args=()
 if [[ -f "$LAB_OUT/zeek/notice.log" ]]; then
   notice_args=(-notice /out/zeek/notice.log)
@@ -113,14 +120,14 @@ fi
 
 log "Scoring detections against ground truth"
 compose run --rm tools detscore score "${truth_args[@]}" \
-  -alerts /out/alerts.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
+  -alerts /out/alerts.jsonl -alerts /out/cadence.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
   -out /out/report.txt
 cat "$LAB_OUT/report.txt"
 
 # The JSON report also applies any gates passed to this script (exit 3 if
 # one fails), after the human-readable report has been printed.
 compose run --rm tools detscore score "${truth_args[@]}" \
-  -alerts /out/alerts.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
+  -alerts /out/alerts.jsonl -alerts /out/cadence.jsonl -eve /out/suricata/eve.json "${notice_args[@]}" \
   -format json -out /out/report.json "$@"
 
 log "Done. Capture, TLS key logs, sensor logs and reports are in $LAB_OUT"

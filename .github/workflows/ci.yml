@@ -39,7 +39,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Test (race, shuffled)
-        run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+        run: go test -race -shuffle=on -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
       - name: Coverage gate
         run: scripts/coverage-gate.sh coverage.out "$COVER_MIN"
       - name: Upload coverage
@@ -74,6 +74,7 @@ jobs:
           - {pkg: ./internal/payload, target: FuzzDecodeBeacon}
           - {pkg: ./internal/zeeklog, target: FuzzRead}
           - {pkg: ./internal/eve, target: FuzzReadAlerts}
+          - {pkg: ./internal/pcap, target: FuzzReader}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -152,6 +153,23 @@ jobs:
               -T -S "/src/$rules" -l /tmp --set app-layer.protocols.quic.enabled=yes
             echo "::endgroup::"
           done
+
+  sigma:
+    name: Validate Sigma rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install sigma-cli
+        run: pip install --upgrade sigma-cli pysigma-backend-splunk pysigma-backend-elasticsearch && sigma version
+      - name: Check rules
+        run: sigma check detections/sigma
+      - name: Convert to Splunk and Elasticsearch
+        run: |
+          sigma convert -t splunk --without-pipeline detections/sigma
+          sigma convert -t lucene --without-pipeline detections/sigma
 
   harness:
     name: Lab harness static checks

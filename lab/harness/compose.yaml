@@ -105,7 +105,9 @@ services:
     network_mode: none
     entrypoint: [suricata]
     command: [-r, /out/lab.pcap, -S, /detections/suricata/quic.rules, -l, /out/suricata, -k, none,
-              --set, app-layer.protocols.quic.enabled=yes]
+              --set, app-layer.protocols.quic.enabled=yes,
+              --set, app-layer.protocols.quic.ja4-fingerprints=yes,
+              --set, app-layer.protocols.tls.ja4-fingerprints=yes]
     volumes:
       - ${LAB_OUT:-./out}:/out
       - ../../detections:/detections:ro

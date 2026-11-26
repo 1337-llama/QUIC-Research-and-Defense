@@ -1,0 +1,5 @@
+{"timestamp":"2026-11-23T12:00:01.300000+0000","event_type":"quic","src_ip":"172.28.0.30","src_port":40001,"dest_ip":"172.28.0.10","dest_port":443,"quic":{"version":"1","sni":"c2","ja4":"q13d0311h3_55b375c5d22e_cd85d2d88918"}}
+{"timestamp":"2026-11-23T12:00:05.100000+0000","event_type":"quic","src_ip":"172.28.0.31","src_port":41001,"dest_ip":"172.28.0.10","dest_port":443,"quic":{"version":"1","sni":"c2","ja4":"q13d0311h3_55b375c5d22e_cd85d2d88918"}}
+{"timestamp":"2026-11-23T12:00:00.100000+0000","event_type":"quic","src_ip":"172.28.0.40","src_port":42001,"dest_ip":"172.28.0.20","dest_port":443,"quic":{"version":"1","sni":"cdn","ja4":"q13d0311h3_55b375c5d22e_cd85d2d88918"}}
+{"timestamp":"2026-11-23T12:00:10.000000+0000","event_type":"quic","src_ip":"172.28.0.50","src_port":43001,"dest_ip":"172.28.0.20","dest_port":443,"quic":{"version":"1","sni":"cdn","ja4":"q13d0313h3_55b375c5d22e_dea6d13ecaaf"}}
+{"timestamp":"2026-11-23T12:00:11.000000+0000","event_type":"quic","src_ip":"172.28.0.30","src_port":40001,"dest_ip":"172.28.0.10","dest_port":443,"quic":{"version":"1"}}

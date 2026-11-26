@@ -32,13 +32,14 @@ Don't task the agent with anything beyond trivial, harmless commands. The networ
 
 ## 8.3 Ground truth for a Merlin run
 
-`detscore` can score a Merlin capture just like a simulator run. Write a ground-truth file by hand from your notes, with one `session` record per QUIC connection the agent made:
+`detscore` can score a Merlin capture just like a simulator run. Because the agent runs on a dedicated lab host, `detscore label` can build the ground truth from Zeek's `conn.log` by labeling every QUIC/TLS connection from that host:
 
-```json
-{"kind":"session","run_id":"merlin-real-1","profile":"merlin","label":"malicious","session_id":1,"local":"172.28.0.50:52344","remote":"172.28.0.60:443","start":"2026-11-23T14:00:00Z","end":"2026-11-23T16:00:00Z"}
+```sh
+detscore label -conn zeek/conn.log -host 172.28.0.50 \
+  -label malicious -profile merlin -run-id merlin-real-1 -out truth-merlin.jsonl
 ```
 
-Get the 4-tuples from Zeek's `conn.log`, filtering on the agent's IP address. Add `benign` sessions for any background traffic you generated, so that precision means something.
+Label any background-traffic hosts as `benign` the same way, so that precision means something. This only works if the labeled hosts generate nothing except the traffic you're labeling.
 
 ## 8.4 What to look for
 
@@ -47,10 +48,10 @@ Compare your sensor output with the published Merlin indicators (Active Counterm
 | Indicator | Where to look |
 |---|---|
 | One QUIC connection lasting hours | Zeek `conn.log` duration, RITA long connections, `detscore` `long-connection` |
-| Regular client-to-server packet cadence inside that connection | Packet timing in the pcap (Zeek logs don't keep per-packet timing) |
+| Regular client-to-server packet cadence inside that connection | `detscore cadence -pcap` (Zeek logs don't keep per-packet timing) |
 | Client `max_idle_timeout` of 30,000 ms | Client transport parameters in the decrypted Initial packet (Wireshark: `quic.tp.max_idle_timeout`) |
 | Abbreviated Zeek `history` strings | `quic.log` `history` field |
-| Go/quic-go JA4 `q` fingerprint | Suricata JA4 or the FoxIO JA4 tooling |
+| Go/quic-go JA4 `q` fingerprint | Suricata JA4, `detscore ja4`, or the FoxIO JA4 tooling |
 | QUIC to a destination with no business reason | `detscore` `unapproved-destination`, or the Zeek `Unapproved_QUIC_Destination` notice |
 
 Then score your detections:

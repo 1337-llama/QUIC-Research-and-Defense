@@ -1,0 +1,26 @@
+title: QUIC Handshake Without a Server Name
+id: a994fd71-6ad0-4888-927d-c0f4f4242e55
+status: experimental
+description: |
+    Detects QUIC handshakes whose ClientHello carries no SNI. Browsers send
+    SNI; implants connecting to an IP address often do not. Encrypted Client
+    Hello also hides SNI, so expect benign hits where ECH is in use, and use
+    this as a scoring signal rather than an alert on its own.
+references:
+    - https://github.com/1337-llama/QUIC-Research-and-Defense/blob/main/docs/02-network-visibility.md
+author: QUIC-Research-and-Defense
+date: 2026-11-25
+tags:
+    - attack.command-and-control
+    - attack.t1071.001
+logsource:
+    product: zeek
+    service: quic
+detection:
+    selection:
+        server_name: null
+    condition: selection
+falsepositives:
+    - Encrypted Client Hello (ECH)
+    - Clients that connect to IP addresses directly
+level: low

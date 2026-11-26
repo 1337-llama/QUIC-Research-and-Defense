@@ -58,6 +58,8 @@ Everything lands in `lab/harness/out/`:
 | `zeek/` | Zeek logs in JSON (`conn.log`, `quic.log`, `notice.log`, …) |
 | `suricata/` | `eve.json` and Suricata's own logs |
 | `alerts.jsonl` | Output of the reference detectors |
+| `cadence.jsonl` | Output of the packet-timing cadence detector |
+| `ja4.txt` | JA4 fingerprints seen by Suricata, grouped by fingerprint, with the profiles that produced them |
 | `report.txt`, `report.json` | The scored results |
 | `simulators.log`, `servers.log` | Container logs |
 
@@ -102,10 +104,27 @@ Each detector's numbers show what it is good at:
 | `nonstandard-port` | QUIC on a port other than the expected ones | `-ports 443` |
 | `periodic-connections` | Client/server pairs whose connection start gaps have a low coefficient of variation | `-periodic-min 5 -periodic-max-cv 0.35` |
 | `missing-sni` | QUIC handshakes with no server name | `-missing-sni` |
+| `intra-connection-cadence` | One connection whose client wakes up on a regular schedule, measured from packet timing (`detscore cadence -pcap`) | `-burst-gap 1s -min-bursts 8 -max-cv 0.35` |
+
+The cadence detector closes a gap the flow-based detectors leave open. A persistent C2 connection (the Merlin-like profile) is a single conn.log line, so periodicity *between* connections can't see it. Inside the connection, though, the client sends a burst of packets for each beacon and keep-alive. The detector splits client packets into bursts separated by at least `-burst-gap` of silence, and flags connections whose burst start times are evenly spaced.
 
 The Zeek script in [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic-hunting.zeek) implements the long-connection and unapproved-destination checks as Zeek notices, so you can deploy the same logic on a live sensor. The Suricata rules are in [`detections/suricata/`](../detections/suricata/).
 
-## 7.6 Scoring your own detections
+## 7.6 JA4 fingerprints
+
+The lab enables JA4 in Suricata, and `detscore ja4` groups the fingerprints it sees by client, naming the profiles that produced each one:
+
+```text
+PROTO  JA4                                   EVENTS  PROFILES                                                    CLIENTS ...
+quic   q13d0311h3_55b375c5d22e_cd85d2d88918  3       browser-like (benign), merlin-like (malicious), ...
+quic   q13d0313h3_55b375c5d22e_dea6d13ecaaf  1       chromium (benign)                                          ...
+```
+
+These values are illustrative; real ones depend on library versions.
+
+The lesson is in the grouping. Every simulator profile, malicious or benign, shares one fingerprint, because JA4 identifies the **TLS/QUIC library and its configuration**, not intent. A real browser has a different one. JA4 is therefore excellent for spotting *non-browser software* speaking QUIC, which is the Tier 2 detection in [chapter 4](04-detection-guide.md#tier-2-handshake-from-the-decryptable-client-initial), and useless for telling good Go programs from bad ones. Don't write production rules from lab fingerprints.
+
+## 7.7 Scoring your own detections
 
 `detscore score` accepts alerts from Zeek (`-notice`), Suricata (`-eve`) and itself (`-alerts`). To score a new detection:
 
@@ -122,7 +141,7 @@ The Zeek script in [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic
 
 4. Add a `-require` gate to [`lab-e2e.yml`](../.github/workflows/lab-e2e.yml) once you're happy with it, so a regression fails CI.
 
-## 7.7 Limits
+## 7.8 Limits
 
 - The lab measures detections against **simulated** behavior. The profiles follow published reporting, but real implants vary. Treat lab scores as a regression suite, not proof of coverage.
 - Handshake fingerprints (JA4) come from the quic-go version pinned in `lab/go.mod`. Don't write production rules from them.

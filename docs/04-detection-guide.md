@@ -56,7 +56,10 @@ The content lives in [`detections/`](../detections/). CI checks that it parses a
 | [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic-hunting.zeek) | Zeek notices for long-lived QUIC connections (`QUICHunt::Long_QUIC_Connection`) and QUIC to destinations outside an allowlist (`QUICHunt::Unapproved_QUIC_Destination`). Tune with `redef QUICHunt::long_threshold` and `QUICHunt::approved_nets` |
 | [`detections/suricata/quic.rules`](../detections/suricata/quic.rules) | An alert on QUIC versions other than v1 and v2 |
 | [`detections/suricata/ja4-example.rules`](../detections/suricata/ja4-example.rules) | A template for alerting on a known-bad JA4 over QUIC. Replace the placeholder with a fingerprint from threat intel |
+| [`detections/sigma/`](../detections/sigma/) | Sigma rules: non-browser process using UDP/443 (Sysmon), long-lived QUIC, QUIC on non-standard ports, QUIC without SNI (Zeek). CI checks them and converts them to Splunk and Elasticsearch |
+| [`detections/siem/`](../detections/siem/README.md) | Splunk SPL and Elastic ES\|QL hunting queries, including the beaconing and cumulative-duration aggregations Sigma can't express |
 | `detscore detect` ([chapter 7](07-detection-lab.md#75-reference-detectors)) | Reference implementations over Zeek logs: long connections, unapproved destinations, non-standard ports, periodic connections, missing SNI |
+| `detscore cadence` | Beaconing *inside* one long-lived connection, from packet timing in a pcap |
 
 The Zeek script's core logic:
 

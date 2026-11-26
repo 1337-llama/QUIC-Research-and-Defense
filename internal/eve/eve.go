@@ -113,3 +113,74 @@ func parseTime(s string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("invalid timestamp %q", s)
 }
+
+// Fingerprint is a JA4 client fingerprint observed by Suricata.
+type Fingerprint struct {
+	TS    time.Time
+	Src   netip.AddrPort
+	Dst   netip.AddrPort
+	Proto string // "quic" or "tls"
+	JA4   string
+	SNI   string
+}
+
+type rawFingerprintEvent struct {
+	Timestamp string `json:"timestamp"`
+	EventType string `json:"event_type"`
+	SrcIP     string `json:"src_ip"`
+	SrcPort   uint16 `json:"src_port"`
+	DestIP    string `json:"dest_ip"`
+	DestPort  uint16 `json:"dest_port"`
+	QUIC      *struct {
+		JA4 string `json:"ja4"`
+		SNI string `json:"sni"`
+	} `json:"quic"`
+	TLS *struct {
+		JA4 string `json:"ja4"`
+		SNI string `json:"sni"`
+	} `json:"tls"`
+}
+
+// ReadFingerprints returns every quic and tls event in r that carries a JA4
+// fingerprint (Suricata 8+ with JA4 enabled). Other events are skipped.
+func ReadFingerprints(r io.Reader) ([]Fingerprint, error) {
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, 64*1024), MaxLineBytes)
+	var out []Fingerprint
+	for line := 1; sc.Scan(); line++ {
+		text := bytes.TrimSpace(sc.Bytes())
+		if len(text) == 0 {
+			continue
+		}
+		var ev rawFingerprintEvent
+		if err := json.Unmarshal(text, &ev); err != nil {
+			return nil, fmt.Errorf("eve line %d: %w", line, err)
+		}
+		var fp Fingerprint
+		switch {
+		case ev.EventType == "quic" && ev.QUIC != nil && ev.QUIC.JA4 != "":
+			fp = Fingerprint{Proto: "quic", JA4: ev.QUIC.JA4, SNI: ev.QUIC.SNI}
+		case ev.EventType == "tls" && ev.TLS != nil && ev.TLS.JA4 != "":
+			fp = Fingerprint{Proto: "tls", JA4: ev.TLS.JA4, SNI: ev.TLS.SNI}
+		default:
+			continue
+		}
+		ts, err := parseTime(ev.Timestamp)
+		if err != nil {
+			return nil, fmt.Errorf("eve line %d: %w", line, err)
+		}
+		src, err1 := netip.ParseAddr(ev.SrcIP)
+		dst, err2 := netip.ParseAddr(ev.DestIP)
+		if err1 != nil || err2 != nil {
+			return nil, fmt.Errorf("eve line %d: invalid addresses %q -> %q", line, ev.SrcIP, ev.DestIP)
+		}
+		fp.TS = ts
+		fp.Src = netip.AddrPortFrom(src.Unmap(), ev.SrcPort)
+		fp.Dst = netip.AddrPortFrom(dst.Unmap(), ev.DestPort)
+		out = append(out, fp)
+	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("eve: %w", err)
+	}
+	return out, nil
+}

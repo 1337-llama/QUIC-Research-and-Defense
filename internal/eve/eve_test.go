@@ -75,3 +75,40 @@ func FuzzReadAlerts(f *testing.F) {
 		}
 	})
 }
+
+const fingerprints = `{"timestamp":"2026-11-25T12:00:00.000000+0000","event_type":"quic","src_ip":"172.28.0.30","src_port":40001,"dest_ip":"172.28.0.10","dest_port":443,"quic":{"version":"1","sni":"c2","ja4":"q13d0310h3_55b375c5d22e_cd85d2d88918"}}
+{"timestamp":"2026-11-25T12:00:01.000000+0000","event_type":"quic","src_ip":"172.28.0.30","src_port":40001,"dest_ip":"172.28.0.10","dest_port":443,"quic":{"version":"1"}}
+{"timestamp":"2026-11-25T12:00:02.000000+0000","event_type":"tls","src_ip":"172.28.0.32","src_port":50000,"dest_ip":"172.28.0.11","dest_port":443,"tls":{"sni":"c2-tcp","ja4":"t13d1311h2_f57a46bbacb6_ab7e3b40a677"}}
+{"timestamp":"2026-11-25T12:00:03.000000+0000","event_type":"alert","src_ip":"172.28.0.30","dest_ip":"172.28.0.10","alert":{"signature":"x"}}
+`
+
+func TestReadFingerprints(t *testing.T) {
+	t.Parallel()
+	fps, err := ReadFingerprints(strings.NewReader(fingerprints))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fps) != 2 {
+		t.Fatalf("got %d fingerprints: %+v", len(fps), fps)
+	}
+	if fps[0].Proto != "quic" || fps[0].SNI != "c2" || fps[0].JA4 != "q13d0310h3_55b375c5d22e_cd85d2d88918" ||
+		fps[0].Src != netip.MustParseAddrPort("172.28.0.30:40001") {
+		t.Errorf("quic fingerprint = %+v", fps[0])
+	}
+	if fps[1].Proto != "tls" || fps[1].Dst.Port() != 443 || !strings.HasPrefix(fps[1].JA4, "t13") {
+		t.Errorf("tls fingerprint = %+v", fps[1])
+	}
+	bad := map[string]string{
+		"json": `{`,
+		"time": `{"timestamp":"x","event_type":"quic","src_ip":"10.0.0.1","dest_ip":"10.0.0.2","quic":{"ja4":"q"}}`,
+		"addr": `{"timestamp":"2026-11-25T12:00:00.000000+0000","event_type":"quic","src_ip":"x","dest_ip":"10.0.0.2","quic":{"ja4":"q"}}`,
+	}
+	for name, in := range bad {
+		if _, err := ReadFingerprints(strings.NewReader(in)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	if _, err := ReadFingerprints(strings.NewReader(strings.Repeat("x", MaxLineBytes+1))); err == nil {
+		t.Error("oversized line accepted")
+	}
+}

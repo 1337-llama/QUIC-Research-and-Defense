@@ -1,0 +1,27 @@
+title: Long-Lived QUIC Connection
+id: e40169ea-3d18-45cf-92a3-0807d9edafab
+status: experimental
+description: |
+    Detects QUIC connections lasting an hour or more. Very few legitimate
+    QUIC connections last that long (0.14% in Active Countermeasures'
+    representative trace), while C2 frameworks such as Merlin hold one
+    connection for many hours.
+references:
+    - https://www.activecountermeasures.com/a-network-threat-hunters-guide-to-c2-over-quic/
+    - https://github.com/1337-llama/QUIC-Research-and-Defense/blob/main/detections/zeek/quic-hunting.zeek
+author: QUIC-Research-and-Defense
+date: 2026-11-25
+tags:
+    - attack.command-and-control
+    - attack.t1071.001
+logsource:
+    product: zeek
+    service: conn
+detection:
+    selection:
+        service|contains: quic
+        duration|gte: 3600
+    condition: selection
+falsepositives:
+    - Long-lived video calls, streaming or tunnels to approved providers
+level: low

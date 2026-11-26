@@ -45,7 +45,8 @@ jobs:
             -require 'unapproved-destination:recall>=0.95' \
             -require 'unapproved-destination:precision>=0.95' \
             -require 'periodic-connections:precision>=0.95' \
-            -require 'long-connection:precision>=0.95'
+            -require 'long-connection:precision>=0.95' \
+            -require 'intra-connection-cadence:precision>=0.95'
       - name: Job summary
         if: always()
         run: |

@@ -14,7 +14,8 @@ FUZZ_TARGETS := \
 	./internal/profile:FuzzLoad \
 	./internal/payload:FuzzDecodeBeacon \
 	./internal/zeeklog:FuzzRead \
-	./internal/eve:FuzzReadAlerts
+	./internal/eve:FuzzReadAlerts \
+	./internal/pcap:FuzzReader
 
 .DEFAULT_GOAL := help
 
@@ -54,7 +55,7 @@ test-race: ## Core unit tests with the race detector
 
 .PHONY: cover
 cover: ## Core tests with a coverage gate (COVER_MIN, default 90%)
-	$(GO) test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+	$(GO) test -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
 	scripts/coverage-gate.sh coverage.out $(COVER_MIN)
 
 .PHONY: fuzz
