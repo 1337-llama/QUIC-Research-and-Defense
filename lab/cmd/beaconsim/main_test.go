@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/groundtruth"
-	"github.com/1337-llama/quic_research/lab/internal/labtest"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/labtest"
 )
 
 func TestRunEndToEnd(t *testing.T) {

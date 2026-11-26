@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/beacon"
-	"github.com/1337-llama/quic_research/internal/certs"
-	"github.com/1337-llama/quic_research/internal/profile"
-	"github.com/1337-llama/quic_research/lab/internal/quictransport"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/beacon"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quictransport"
 )
 
 type syncBuffer struct {

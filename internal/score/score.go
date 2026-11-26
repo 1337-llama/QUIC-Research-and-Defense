@@ -19,11 +19,11 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/detect"
-	"github.com/1337-llama/quic_research/internal/eve"
-	"github.com/1337-llama/quic_research/internal/groundtruth"
-	"github.com/1337-llama/quic_research/internal/profile"
-	"github.com/1337-llama/quic_research/internal/zeeklog"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/detect"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/eve"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/zeeklog"
 )
 
 // AnyDetector is the pseudo-detector that combines every alert.

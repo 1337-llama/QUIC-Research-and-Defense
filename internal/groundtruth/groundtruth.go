@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 )
 
 // Kind is the type of a record.

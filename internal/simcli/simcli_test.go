@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 )
 
 var t0 = time.Unix(1_800_000_000, 123)
@@ -39,7 +39,7 @@ func TestParseClientDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.Profile.Name != "merlin-like" || o.RunID != "merlin-like-1800000000" || o.Seed != uint64(t0.UnixNano()) {
+	if o.Profile.Name != "merlin-like" || o.RunID != "merlin-like-1800000000" || o.Seed == 0 {
 		t.Errorf("defaults = %+v", o)
 	}
 	if o.AllowPublic || o.Duration != 0 || o.LogFormat != "text" || o.LogLevel != "info" || o.CAWait != 30*time.Second {

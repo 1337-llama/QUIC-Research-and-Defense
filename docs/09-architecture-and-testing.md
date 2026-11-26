@@ -6,7 +6,7 @@ This chapter is for engineers who want to review, extend or trust the tooling.
 
 ```mermaid
 flowchart TB
-  subgraph core["core module: github.com/1337-llama/quic_research (stdlib only)"]
+  subgraph core["core module: github.com/1337-llama/QUIC-Research-and-Defense (stdlib only)"]
     profile --> schedule
     profile --> beacon
     schedule --> beacon

@@ -16,11 +16,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/beacon"
-	"github.com/1337-llama/quic_research/internal/certs"
-	"github.com/1337-llama/quic_research/internal/groundtruth"
-	"github.com/1337-llama/quic_research/internal/simcli"
-	"github.com/1337-llama/quic_research/lab/internal/quictransport"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/beacon"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
+	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quictransport"
 )
 
 func main() {

@@ -20,10 +20,10 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 
-	"github.com/1337-llama/quic_research/internal/beacon"
-	"github.com/1337-llama/quic_research/internal/payload"
-	"github.com/1337-llama/quic_research/internal/profile"
-	"github.com/1337-llama/quic_research/internal/safety"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/beacon"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/safety"
 )
 
 // DefaultHandshakeTimeout bounds connection setup.

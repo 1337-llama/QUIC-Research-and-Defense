@@ -1,3 +1,3 @@
-module github.com/1337-llama/quic_research
+module github.com/1337-llama/QUIC-Research-and-Defense
 
 go 1.24

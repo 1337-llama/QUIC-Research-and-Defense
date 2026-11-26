@@ -1,8 +1,8 @@
-# quic_research
+# QUIC Research and Defense
 
-[![CI](https://github.com/1337-llama/quic_research/actions/workflows/ci.yml/badge.svg)](https://github.com/1337-llama/quic_research/actions/workflows/ci.yml)
-[![Lab end-to-end](https://github.com/1337-llama/quic_research/actions/workflows/lab-e2e.yml/badge.svg)](https://github.com/1337-llama/quic_research/actions/workflows/lab-e2e.yml)
-[![CodeQL](https://github.com/1337-llama/quic_research/actions/workflows/codeql.yml/badge.svg)](https://github.com/1337-llama/quic_research/actions/workflows/codeql.yml)
+[![CI](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/ci.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/ci.yml)
+[![Lab end-to-end](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/lab-e2e.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/lab-e2e.yml)
+[![CodeQL](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/codeql.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/codeql.yml)
 
 Research on the QUIC protocol and how defenders can detect its abuse in the wild, plus a **detection lab** that measures detections against labeled QUIC C2-like traffic.
 

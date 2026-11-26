@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/certs"
-	"github.com/1337-llama/quic_research/internal/labserver"
-	"github.com/1337-llama/quic_research/internal/simcli"
-	"github.com/1337-llama/quic_research/lab/internal/quicserver"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/labserver"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
+	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quicserver"
 )
 
 func main() {

@@ -22,10 +22,10 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/groundtruth"
-	"github.com/1337-llama/quic_research/internal/payload"
-	"github.com/1337-llama/quic_research/internal/profile"
-	"github.com/1337-llama/quic_research/internal/schedule"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/schedule"
 )
 
 // Request is one HTTP request to send on a session.

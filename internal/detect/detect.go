@@ -19,7 +19,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/zeeklog"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/zeeklog"
 )
 
 // Detector names.

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/payload"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
 )
 
 var t0 = time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
