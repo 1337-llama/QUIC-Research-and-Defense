@@ -38,6 +38,7 @@ Current implants (KUKURAT, Salat Stealer and others) **fall back to HTTP/2 or We
 - TLS inspection on TCP/443, with JA4/JA4S/JA4X fingerprinting.
 - Beacon analytics on HTTPS flows.
 - Alerts for the same non-browser processes making TCP/443 connections to the same unusual destinations.
+- Detections that run on both transports. The lab's `sim-fallback` scenario ([chapter 7](07-detection-lab.md)) shows a QUIC-only detection stack losing the beacon the moment QUIC is blocked, and `detscore detect -include-tls` getting it back.
 
 ## 5.6 Endpoint controls
 

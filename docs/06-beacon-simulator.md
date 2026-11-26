@@ -77,9 +77,19 @@ Useful flags:
 | `-seed` | Make a run's timing and sizes reproducible |
 | `-run-id` | Label the run in ground truth and server logs |
 | `-ca-wait` | Wait for the server's certificate to appear (used in containers) |
+| `-rotate-after` | Override the rotation age of a `rotate`-mode profile |
+| `-fallback` | When a QUIC session can't be opened, open it over HTTP/2 on TLS/TCP instead, as real implants do when UDP/443 is blocked |
+| `-quic-timeout` | QUIC handshake timeout (default 10s), and so how long a blocked network delays the fallback |
 | `-allow-public-targets` | Allow non-lab destinations. Only use it for infrastructure you own |
 
 Certificate verification is always on. The client trusts only the certificate passed with `-ca`.
+
+The server can also listen on TCP for the fallback path, and publish its certificate's SPKI hash for Chromium's `--ignore-certificate-errors-spki-list`:
+
+```sh
+beaconsrv -listen :443 -listen-tcp :443 -hosts c2,10.0.0.10 -cert-out /shared/c2.pem -spki-out /shared/c2.spki
+beaconsrv -listen "" -listen-tcp :443 ...   # TCP only: looks like a network that blocks QUIC
+```
 
 ## 6.4 Ground truth
 
@@ -87,11 +97,11 @@ Ground truth is JSON Lines. Each request produces a `beacon` record, and each co
 
 ```json
 {"kind":"session","run_id":"merlin","profile":"merlin-like","label":"malicious","session_id":1,
- "local":"172.28.0.30:41876","remote":"172.28.0.10:443",
+ "local":"172.28.0.30:41876","remote":"172.28.0.10:443","transport":"quic",
  "start":"2026-11-23T12:00:01.2Z","end":"2026-11-23T12:06:01.4Z","beacons":12}
 ```
 
-The simulator binds each connection's UDP socket to the concrete source address the kernel routes from. The `local`/`remote` pair is therefore exactly the 4-tuple Zeek and Suricata log, and the scorer can match alerts to sessions without guessing. The integration tests check this against the addresses the server actually sees.
+`transport` is `quic`, or `tcp` for a session opened by the fallback. The simulator binds each connection's UDP socket to the concrete source address the kernel routes from. The `local`/`remote` pair is therefore exactly the 4-tuple Zeek and Suricata log, and the scorer can match alerts to sessions without guessing. The integration tests check this against the addresses the server actually sees.
 
 ## 6.5 Safety design
 

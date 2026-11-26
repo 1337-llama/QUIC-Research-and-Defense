@@ -16,7 +16,7 @@ x-lab-image: &lab-image
 x-sim: &sim
   <<: *lab-image
   user: "${LAB_UID:-65532}:${LAB_GID:-65532}"
-  depends_on: [c2, cdn]
+  depends_on: [c2, c2-tcp, cdn]
   volumes:
     - ${LAB_OUT:-./out}/shared:/shared:ro
     - ${LAB_OUT:-./out}:/out
@@ -38,10 +38,22 @@ services:
     networks:
       labnet: {ipv4_address: 172.28.0.10}
 
-  # "CDN" lab server: the approved destination benign traffic uses.
+  # A second C2 server that only speaks HTTP/2 over TLS/TCP. To a simulator
+  # it looks exactly like a network that blocks UDP/443, so the fallback
+  # profile's QUIC attempts fail and it beacons over HTTPS instead.
+  c2-tcp:
+    <<: *server
+    command: [beaconsrv, -listen, "", -listen-tcp, ":443", -hosts, "c2-tcp,172.28.0.11", -cert-out, /shared/c2-tcp.pem,
+              -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.11}
+
+  # "CDN" lab server: the approved destination benign traffic uses. It also
+  # publishes its SPKI hash so a real Chromium can trust it.
   cdn:
     <<: *server
-    command: [beaconsrv, -listen, ":443", -hosts, "cdn,172.28.0.20", -cert-out, /shared/cdn.pem, -log-format, json]
+    command: [beaconsrv, -listen, ":443", -hosts, "cdn,172.28.0.20", -cert-out, /shared/cdn.pem,
+              -spki-out, /shared/cdn.spki, -log-format, json]
     networks:
       labnet: {ipv4_address: 172.28.0.20}
 
@@ -61,6 +73,36 @@ services:
     networks:
       labnet: {ipv4_address: 172.28.0.31}
 
+  # QUIC first, HTTPS over TCP when QUIC fails: what blocking UDP/443 leaves.
+  sim-fallback:
+    <<: *sim
+    command: [beaconsim, -profile, quicagent-like, -target, "c2-tcp:443", -ca, /shared/c2-tcp.pem,
+              -fallback, -quic-timeout, 3s, -interval, 30s,
+              -duration, "${LAB_DURATION:-6m}", -run-id, fallback, -seed, "103",
+              -truth, /out/truth-fallback.jsonl, -keylog, /out/keys-fallback.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.32}
+
+  # Hard case: a handful of widely jittered beacons, too few for the
+  # periodicity detector within a short run.
+  sim-lowslow:
+    <<: *sim
+    command: [beaconsim, -profile, low-and-slow, -target, "c2:443", -ca, /shared/c2.pem, -interval, 90s,
+              -duration, "${LAB_DURATION:-6m}", -run-id, lowslow, -seed, "104",
+              -truth, /out/truth-lowslow.jsonl, -keylog, /out/keys-lowslow.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.33}
+
+  # Hard case: periodic beacons on connections replaced before they get
+  # long enough for the long-connection detector.
+  sim-rotating:
+    <<: *sim
+    command: [beaconsim, -profile, rotating-session, -target, "c2:443", -ca, /shared/c2.pem, -rotate-after, 2m,
+              -duration, "${LAB_DURATION:-6m}", -run-id, rotating, -seed, "105",
+              -truth, /out/truth-rotating.jsonl, -keylog, /out/keys-rotating.log, -log-format, json]
+    networks:
+      labnet: {ipv4_address: 172.28.0.34}
+
   bg-browser-1:
     <<: *sim
     command: [beaconsim, -profile, browser-like, -target, "cdn:443", -ca, /shared/cdn.pem,
@@ -77,12 +119,29 @@ services:
     networks:
       labnet: {ipv4_address: 172.28.0.41}
 
-  # Packet capture of the lab bridge (UDP only).
+  # Real browser background: headless Chromium fetching the CDN page over
+  # QUIC at random intervals. Its connections are labeled benign from Zeek's
+  # conn.log after the run (the browser writes no ground truth itself).
+  bg-chromium:
+    image: chromedp/headless-shell:stable
+    depends_on: [cdn]
+    shm_size: 256m
+    entrypoint: [sh, /lab/browse.sh]
+    environment:
+      LAB_SECONDS: "${LAB_SECONDS:-360}"
+    volumes:
+      - ${LAB_OUT:-./out}/shared:/shared:ro
+      - ./chromium:/lab:ro
+    networks:
+      labnet: {ipv4_address: 172.28.0.50}
+
+  # Packet capture of the lab bridge: all UDP, plus TCP/443 for the HTTPS
+  # fallback and the browser.
   capture:
     image: nicolaka/netshoot:v0.16
     network_mode: host
     cap_add: [NET_ADMIN, NET_RAW]
-    command: [tcpdump, -i, qrlab0, -U, -n, -w, /out/lab.pcap, udp]
+    command: [tcpdump, -i, qrlab0, -U, -n, -w, /out/lab.pcap, "udp or (tcp and port 443)"]
     volumes:
       - ${LAB_OUT:-./out}:/out
 

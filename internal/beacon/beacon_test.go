@@ -82,8 +82,9 @@ func (t *labTransport) Open(context.Context) (Session, error) {
 		}
 	}
 	return &labSession{t: t, info: SessionInfo{
-		Local:  netip.AddrPortFrom(netip.MustParseAddr("10.0.0.2"), uint16(40000+t.opens)),
-		Remote: netip.MustParseAddrPort("10.0.0.1:443"),
+		Local:     netip.AddrPortFrom(netip.MustParseAddr("10.0.0.2"), uint16(40000+t.opens)),
+		Remote:    netip.MustParseAddrPort("10.0.0.1:443"),
+		Transport: "quic",
 	}}, nil
 }
 
@@ -210,7 +211,7 @@ func TestPersistentModeUsesOneSession(t *testing.T) {
 	if !s.Start.Equal(t0) || !s.End.Equal(t0.Add(4*time.Second)) {
 		t.Errorf("session window = %v..%v", s.Start, s.End)
 	}
-	if s.Local.Port() != 40001 || s.Label != profile.LabelMalicious || s.Profile != "test" {
+	if s.Local.Port() != 40001 || s.Label != profile.LabelMalicious || s.Profile != "test" || s.Transport != "quic" {
 		t.Errorf("session = %+v", s)
 	}
 	beacons := h.rec.kind(groundtruth.KindBeacon)

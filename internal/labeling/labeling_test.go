@@ -51,6 +51,17 @@ func TestFromConns(t *testing.T) {
 		}
 	}
 
+	if recs[0].Transport != "quic" {
+		t.Errorf("transport = %q, want quic", recs[0].Transport)
+	}
+	tcp := conn("172.28.0.50:40004", "172.28.0.20:443", 4*time.Second, "ssl")
+	tcp.Proto = "tcp"
+	tlsSpec := spec()
+	tlsSpec.Services = []string{"ssl"}
+	if recs, _ := FromConns([]zeeklog.Conn{tcp}, tlsSpec); len(recs) != 1 || recs[0].Transport != "tcp" {
+		t.Errorf("TCP conn: %+v", recs)
+	}
+
 	allSvc := spec()
 	allSvc.Services = nil
 	if recs, _ := FromConns(conns, allSvc); len(recs) != 3 {

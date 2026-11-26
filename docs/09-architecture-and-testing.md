@@ -14,6 +14,8 @@ flowchart TB
     groundtruth --> beacon
     safety
     labserver --> payload
+    safety --> tlstransport["tlstransport<br/>beacon.Transport over HTTP/2 on TLS"]
+    fallback["fallback<br/>primary, then fallback transport"]
     simcli --> profile
     simcli --> safety
     zeeklog --> detect
@@ -37,6 +39,8 @@ flowchart TB
   safety --> quictransport
   labserver --> quicserver
   quictransport --> beaconsim
+  tlstransport --> beaconsim
+  fallback --> beaconsim
   quicserver --> beaconsrv
   simcli --> beaconsim
   simcli --> beaconsrv
@@ -45,6 +49,7 @@ flowchart TB
 The key design decision is the split between two modules:
 
 - **The core module has no dependencies.** Profiles, scheduling, safety policy, payloads, ground truth, the beacon runner, the lab's HTTP handler, CLI parsing, log parsers, detectors and the scorer use only the standard library. CI enforces this. The core is easy to audit, quick to build, and fully testable without a network.
+- **The HTTPS fallback lives in the core.** HTTP/2 over TLS needs only the standard library, so `tlstransport` and the `fallback` combinator are core packages, tested against the real lab handler over loopback TLS. Only the QUIC side needs the lab module.
 - **The lab module is a thin adapter.** It implements the runner's `Transport`/`Session` interfaces with quic-go and serves the core's `http.Handler` over HTTP/3. Most of what the binaries do is parse flags (in the core's `simcli`) and wire things together.
 
 The beacon runner sees the network only through three interfaces: `Transport`, `Session` and `Clock`. Tests inject an in-memory transport backed by the real lab handler, plus a fake clock, so hours of simulated beaconing run in milliseconds and assertions can use exact times.
@@ -68,6 +73,7 @@ A few specific tests guard properties that matter for this project:
 
 - `TestAckCarriesNoInstructions` fails if anyone adds a field to the server's acknowledgement.
 - `TestRefusesPublicTargets` and `TestRunRefusesPublicTarget` check that the safety policy holds through the real transport and binary, not just in the unit test.
+- `TestSessionNeverRedials` checks that an HTTPS session fails rather than silently reconnecting, because a reconnect would put traffic on a 4-tuple ground truth doesn't know about. `TestRunFallsBackToTCP` runs the real simulator binary against a TCP-only server and checks every session lands in ground truth as `"transport":"tcp"`.
 - `TestPersistentProfileSharesOneConnection` checks that ground-truth addresses match what the server observes, which every scoring result depends on.
 
 ## 9.3 Coverage

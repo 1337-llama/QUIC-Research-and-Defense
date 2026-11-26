@@ -9,8 +9,13 @@ flowchart LR
   subgraph labnet["labnet 172.28.0.0/24 (internal: no internet route)"]
     M[sim-merlin<br/>merlin-like] -->|HTTP/3| C2[c2 172.28.0.10<br/>beaconsrv]
     Q[sim-quicagent<br/>quicagent-like] -->|HTTP/3| C2
+    L[sim-lowslow<br/>low-and-slow] -->|HTTP/3| C2
+    RO[sim-rotating<br/>rotating-session] -->|HTTP/3| C2
+    F[sim-fallback<br/>quicagent-like + -fallback] -. QUIC fails .-> C2T[c2-tcp 172.28.0.11<br/>beaconsrv, TCP only]
+    F -->|HTTP/2 over TLS| C2T
     B1[bg-browser-1<br/>browser-like] -->|HTTP/3| CDN[cdn 172.28.0.20<br/>beaconsrv]
     B2[bg-browser-2<br/>browser-like] -->|HTTP/3| CDN
+    CH[bg-chromium<br/>headless Chromium] -->|HTTP/3| CDN
   end
   labnet -. tcpdump on bridge qrlab0 .-> P[(lab.pcap)]
   P --> Z[Zeek<br/>conn, quic, notice logs]
@@ -23,11 +28,25 @@ flowchart LR
   R --> O[report.txt / report.json]
 ```
 
-The scenario mirrors a common enterprise setup. Malicious profiles beacon to a "C2" server. Benign, browser-like traffic goes to a "CDN", which is the destination your policy approves.
+The scenario mirrors a common enterprise setup. Malicious profiles beacon to a "C2" server. Benign traffic goes to a "CDN", which is the destination your policy approves.
+
+| Container | Role | What it tests |
+|---|---|---|
+| `sim-merlin` | One persistent connection with keep-alives | Long-connection and in-connection cadence detection |
+| `sim-quicagent` | A new connection per beacon | Periodicity between connections |
+| `sim-fallback` | QUIC first; HTTP/2 over TLS/TCP when QUIC fails | Whether detections follow a beacon off QUIC (see 7.5) |
+| `sim-lowslow` | A few widely jittered beacons (90s, 50% jitter) | A hard case: too few connections for periodicity in a short run |
+| `sim-rotating` | Periodic beacons on connections replaced every 2 minutes | A hard case: no connection lives long enough for long-connection |
+| `bg-browser-1`, `bg-browser-2` | Synthetic bursty browsing | Benign background from the simulator |
+| `bg-chromium` | Real headless Chromium loading the CDN page over QUIC | Benign background with a real browser's handshake and JA4 |
+
+`c2-tcp` only listens on TCP. To the fallback simulator that is indistinguishable from a network that blocks UDP/443: every QUIC attempt times out (after `-quic-timeout 3s`) and the session completes over HTTPS instead. Its ground truth records `"transport":"tcp"`, and the failed QUIC attempts show up as unmatched one-sided UDP flows.
+
+Chromium writes no ground truth of its own. After Zeek runs, `detscore label` turns every connection from its address in `conn.log` into a benign session record, so the browser's traffic is scored like everything else.
 
 ## 7.2 Running it
 
-You need a **Linux** Docker host, because the capture container sniffs the lab bridge from the host network namespace. The run takes about 8 minutes.
+You need a **Linux** Docker host, because the capture container sniffs the lab bridge from the host network namespace. The run takes about 8 minutes. `LAB_DURATION` accepts the forms `90s`, `6m` and `1h`.
 
 ```sh
 make lab-tidy      # first time only: resolve lab/go.sum
@@ -52,9 +71,9 @@ Everything lands in `lab/harness/out/`:
 
 | File | Contents |
 |---|---|
-| `lab.pcap` | The full UDP capture |
+| `lab.pcap` | The capture: all UDP plus TCP/443 |
 | `keys-*.log` | TLS secrets per simulator. In Wireshark, set *Preferences → Protocols → TLS → (Pre)-Master-Secret log filename* to see inside the HTTP/3 traffic |
-| `truth-*.jsonl` | Ground truth from each simulator |
+| `truth-*.jsonl` | Ground truth from each simulator, plus `truth-chromium.jsonl` labeled from `conn.log` |
 | `zeek/` | Zeek logs in JSON (`conn.log`, `quic.log`, `notice.log`, …) |
 | `suricata/` | `eve.json` and Suricata's own logs |
 | `alerts.jsonl` | Output of the reference detectors |
@@ -106,6 +125,8 @@ Each detector's numbers show what it is good at:
 | `missing-sni` | QUIC handshakes with no server name | `-missing-sni` |
 | `intra-connection-cadence` | One connection whose client wakes up on a regular schedule, measured from packet timing (`detscore cadence -pcap`) | `-burst-gap 1s -min-bursts 8 -max-cv 0.35` |
 
+With `-include-tls`, which the lab passes, the long-connection, unapproved-destination, nonstandard-port and periodic-connections detectors also apply to TLS over TCP (Zeek service `ssl`). Without it, the fallback simulator's sessions are invisible to them: blocking QUIC moved the beacon, and a QUIC-only detection stack lost it. That is the point of the scenario. Run the lab once without the flag to see the recall drop.
+
 The cadence detector closes a gap the flow-based detectors leave open. A persistent C2 connection (the Merlin-like profile) is a single conn.log line, so periodicity *between* connections can't see it. Inside the connection, though, the client sends a burst of packets for each beacon and keep-alive. The detector splits client packets into bursts separated by at least `-burst-gap` of silence, and flags connections whose burst start times are evenly spaced.
 
 The Zeek script in [`detections/zeek/quic-hunting.zeek`](../detections/zeek/quic-hunting.zeek) implements the long-connection and unapproved-destination checks as Zeek notices, so you can deploy the same logic on a live sensor. The Suricata rules are in [`detections/suricata/`](../detections/suricata/).
@@ -134,8 +155,7 @@ The lesson is in the grouping. Every simulator profile, malicious or benign, sha
 
    ```sh
    go run ./cmd/detscore score \
-     -truth lab/harness/out/truth-merlin.jsonl -truth lab/harness/out/truth-quicagent.jsonl \
-     -truth lab/harness/out/truth-browser-1.jsonl -truth lab/harness/out/truth-browser-2.jsonl \
+     $(for f in lab/harness/out/truth-*.jsonl; do printf -- '-truth %s ' "$f"; done) \
      -notice my-notice.log -eve my-eve.json
    ```
 
@@ -145,7 +165,8 @@ The lesson is in the grouping. Every simulator profile, malicious or benign, sha
 
 - The lab measures detections against **simulated** behavior. The profiles follow published reporting, but real implants vary. Treat lab scores as a regression suite, not proof of coverage.
 - Handshake fingerprints (JA4) come from the quic-go version pinned in `lab/go.mod`. Don't write production rules from them.
-- Background traffic is synthetic. Real browser QUIC is noisier and much more varied, so expect lower precision in production than in the lab.
+- Most background traffic is synthetic. The Chromium container adds a real browser, but one browser loading one page is still far quieter and more uniform than an office, so expect lower precision in production than in the lab.
+- The hard-case profiles are deliberately at the edge of what a 6-minute run can catch. Their per-detector recall is expected to be low; the gates only require that *some* detection catches them.
 
 ---
 

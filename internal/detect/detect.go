@@ -17,6 +17,7 @@ import (
 	"net/netip"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/zeeklog"
@@ -61,6 +62,10 @@ type Config struct {
 	PeriodicMaxCV float64
 	// MissingSNI flags QUIC handshakes with no server name.
 	MissingSNI bool
+	// IncludeTLS also applies the connection detectors (long connection,
+	// port, destination, periodicity) to TLS over TCP, so a beacon that
+	// falls back to HTTPS when UDP/443 is blocked is still caught.
+	IncludeTLS bool
 }
 
 // DefaultConfig returns the settings recommended in the detection guide.
@@ -105,26 +110,12 @@ func Run(cfg Config, conns []zeeklog.Conn, quics []zeeklog.QUIC) ([]Alert, error
 	}
 	var qconns []zeeklog.Conn
 	for _, c := range conns {
-		if c.HasService("quic") || quicUIDs[c.UID] {
+		if c.HasService("quic") || quicUIDs[c.UID] || (cfg.IncludeTLS && c.HasService("ssl")) {
 			qconns = append(qconns, c)
 		}
 	}
 
-	var out []Alert
-	alert := func(det string, c zeeklog.Conn, detail string) {
-		out = append(out, Alert{Detector: det, TS: c.TS, UID: c.UID, Orig: c.Orig, Resp: c.Resp, Detail: detail})
-	}
-	for _, c := range qconns {
-		if cfg.LongConnection > 0 && c.Duration >= cfg.LongConnection {
-			alert(LongConnection, c, fmt.Sprintf("QUIC connection lasted %s (threshold %s)", c.Duration.Round(time.Second), cfg.LongConnection))
-		}
-		if len(cfg.StandardPorts) > 0 && !slices.Contains(cfg.StandardPorts, c.Resp.Port()) {
-			alert(NonStandardPort, c, fmt.Sprintf("QUIC on UDP/%d", c.Resp.Port()))
-		}
-		if len(cfg.ApprovedNets) > 0 && !inAny(cfg.ApprovedNets, c.Resp.Addr()) {
-			alert(UnapprovedDestination, c, fmt.Sprintf("QUIC to %s, outside approved networks", c.Resp.Addr()))
-		}
-	}
+	out := connectionAlerts(cfg, qconns)
 	if cfg.MissingSNI {
 		for _, q := range quics {
 			if q.ServerName == "" {
@@ -256,4 +247,41 @@ func ReadAlerts(r io.Reader) ([]Alert, error) {
 		return nil, fmt.Errorf("alerts: %w", err)
 	}
 	return out, nil
+}
+
+// transportOf returns the connection's transport protocol, defaulting to udp
+// for logs that omit it.
+func transportOf(c zeeklog.Conn) string {
+	if c.Proto == "" {
+		return "udp"
+	}
+	return strings.ToLower(c.Proto)
+}
+
+// label names the protocol in alert details: "QUIC" for UDP, "TLS" for TCP.
+func label(c zeeklog.Conn) string {
+	if transportOf(c) == "tcp" {
+		return "TLS"
+	}
+	return "QUIC"
+}
+
+// connectionAlerts applies the per-connection detectors.
+func connectionAlerts(cfg Config, conns []zeeklog.Conn) []Alert {
+	var out []Alert
+	alert := func(det string, c zeeklog.Conn, detail string) {
+		out = append(out, Alert{Detector: det, TS: c.TS, UID: c.UID, Orig: c.Orig, Resp: c.Resp, Detail: detail})
+	}
+	for _, c := range conns {
+		if cfg.LongConnection > 0 && c.Duration >= cfg.LongConnection {
+			alert(LongConnection, c, fmt.Sprintf("%s connection lasted %s (threshold %s)", label(c), c.Duration.Round(time.Second), cfg.LongConnection))
+		}
+		if len(cfg.StandardPorts) > 0 && !slices.Contains(cfg.StandardPorts, c.Resp.Port()) {
+			alert(NonStandardPort, c, fmt.Sprintf("%s on %s/%d", label(c), strings.ToUpper(transportOf(c)), c.Resp.Port()))
+		}
+		if len(cfg.ApprovedNets) > 0 && !inAny(cfg.ApprovedNets, c.Resp.Addr()) {
+			alert(UnapprovedDestination, c, fmt.Sprintf("%s to %s, outside approved networks", label(c), c.Resp.Addr()))
+		}
+	}
+	return out
 }

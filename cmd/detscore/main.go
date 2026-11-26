@@ -151,6 +151,7 @@ func runDetect(args []string, stdout, stderr io.Writer) error {
 	fs.IntVar(&cfg.PeriodicMinConns, "periodic-min", cfg.PeriodicMinConns, "minimum connections to judge periodicity (0 disables)")
 	fs.Float64Var(&cfg.PeriodicMaxCV, "periodic-max-cv", cfg.PeriodicMaxCV, "maximum coefficient of variation of connection gaps")
 	fs.BoolVar(&cfg.MissingSNI, "missing-sni", cfg.MissingSNI, "flag QUIC handshakes without SNI")
+	fs.BoolVar(&cfg.IncludeTLS, "include-tls", cfg.IncludeTLS, "also apply the connection detectors to TLS over TCP (catches HTTPS fallback)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}

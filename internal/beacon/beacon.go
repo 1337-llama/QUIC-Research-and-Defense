@@ -46,6 +46,9 @@ type Response struct {
 type SessionInfo struct {
 	Local  netip.AddrPort
 	Remote netip.AddrPort
+	// Transport names the protocol carrying the session, e.g. "quic" or
+	// "tcp" (HTTP/2 over TLS after a fallback).
+	Transport string
 }
 
 // Session is one open QUIC connection.
@@ -351,7 +354,8 @@ func (r *runner) closeSession(reason string) error {
 func (r *runner) record(kind groundtruth.Kind, start time.Time) groundtruth.Record {
 	return groundtruth.Record{
 		Kind: kind, RunID: r.cfg.RunID, Profile: r.cfg.Profile.Name, Label: r.cfg.Profile.Label,
-		SessionID: r.sessID, Local: r.sessInfo.Local, Remote: r.sessInfo.Remote, Start: start,
+		SessionID: r.sessID, Local: r.sessInfo.Local, Remote: r.sessInfo.Remote, Transport: r.sessInfo.Transport,
+		Start: start,
 	}
 }
 

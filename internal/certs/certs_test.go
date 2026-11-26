@@ -1,8 +1,10 @@
 package certs
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"io"
 	"net"
 	"testing"
@@ -88,5 +90,22 @@ func TestSelfSignedErrors(t *testing.T) {
 	}
 	if _, err := PoolFromPEM([]byte("not pem")); err == nil {
 		t.Error("garbage PEM accepted")
+	}
+}
+
+func TestSPKIHash(t *testing.T) {
+	t.Parallel()
+	g, err := SelfSigned([]string{"cdn"}, time.Now(), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := SPKIHash(g.TLS.Leaf)
+	sum := sha256.Sum256(g.TLS.Leaf.RawSubjectPublicKeyInfo)
+	if want := base64.StdEncoding.EncodeToString(sum[:]); got != want || len(got) != 44 {
+		t.Fatalf("SPKIHash = %q, want %q", got, want)
+	}
+	other, _ := SelfSigned([]string{"cdn"}, time.Now(), time.Hour)
+	if SPKIHash(other.TLS.Leaf) == got {
+		t.Error("different keys produced the same hash")
 	}
 }

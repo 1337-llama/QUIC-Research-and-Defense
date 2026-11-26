@@ -40,7 +40,9 @@ type Record struct {
 	SessionID uint64         `json:"session_id"`
 	Local     netip.AddrPort `json:"local"`
 	Remote    netip.AddrPort `json:"remote"`
-	Start     time.Time      `json:"start"`
+	// Transport is the protocol that carried the session ("quic" or "tcp").
+	Transport string    `json:"transport,omitempty"`
+	Start     time.Time `json:"start"`
 	// End is set on session records only.
 	End time.Time `json:"end,omitzero"`
 	// Seq and BodyBytes are set on beacon records only.

@@ -164,8 +164,9 @@ func (t *Transport) Open(ctx context.Context) (beacon.Session, error) {
 		pc:      pc,
 		baseURL: "https://" + t.authority,
 		info: beacon.SessionInfo{
-			Local:  netip.AddrPortFrom(local, la.AddrPort().Port()),
-			Remote: remote,
+			Local:     netip.AddrPortFrom(local, la.AddrPort().Port()),
+			Remote:    remote,
+			Transport: "quic",
 		},
 	}
 	// Run HTTP/3 over the connection we already dialed, so every request in
