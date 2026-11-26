@@ -120,7 +120,7 @@ quic   q13d0311h3_55b375c5d22e_cd85d2d88918  3       browser-like (benign), merl
 quic   q13d0313h3_55b375c5d22e_dea6d13ecaaf  1       chromium (benign)                                          ...
 ```
 
-*(Illustrative. Real values depend on library versions.)*
+These values are illustrative; real ones depend on library versions.
 
 The lesson is in the grouping. Every simulator profile, malicious or benign, shares one fingerprint, because JA4 identifies the **TLS/QUIC library and its configuration**, not intent. A real browser has a different one. JA4 is therefore excellent for spotting *non-browser software* speaking QUIC, which is the Tier 2 detection in [chapter 4](04-detection-guide.md#tier-2-handshake-from-the-decryptable-client-initial), and useless for telling good Go programs from bad ones. Don't write production rules from lab fingerprints.
 

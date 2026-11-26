@@ -163,7 +163,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install sigma-cli
-        run: pip install "sigma-cli>=1.0,<2" "pysigma-backend-splunk" "pysigma-backend-elasticsearch"
+        run: pip install --upgrade sigma-cli pysigma-backend-splunk pysigma-backend-elasticsearch && sigma version
       - name: Check rules
         run: sigma check detections/sigma
       - name: Convert to Splunk and Elasticsearch
