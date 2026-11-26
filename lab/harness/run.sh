@@ -61,6 +61,8 @@ show_logs() {
   compose logs --no-log-prefix --tail 40 c2 c2-tcp cdn >&2 || true
   echo "---- simulator logs (last 60 lines) ----" >&2
   tail -n 60 "$LAB_OUT/simulators.log" >&2 || true
+  echo "---- browser logs (last 60 lines) ----" >&2
+  compose logs --no-log-prefix --tail 60 bg-chromium >&2 || true
 }
 
 log "Building the lab image"

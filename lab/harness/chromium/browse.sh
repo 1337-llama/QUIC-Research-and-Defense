@@ -31,7 +31,8 @@ while [ "$(date +%s)" -lt "$end" ]; do
   # The resolver rule pins the CDN's address, so name resolution inside the
   # browser can't be the reason a load fails.
   if timeout 30 /headless-shell/headless-shell \
-    --no-sandbox --headless --disable-gpu --no-first-run \
+    --no-sandbox --headless --disable-gpu --no-first-run --disable-dev-shm-usage \
+    --enable-logging=stderr --log-level=0 --timeout=20000 \
     --user-data-dir=/tmp/chromium-profile \
     --host-resolver-rules="MAP cdn 172.28.0.20" \
     --enable-quic --origin-to-force-quic-on=cdn:443 \
@@ -46,7 +47,7 @@ while [ "$(date +%s)" -lt "$end" ]; do
       echo "browse.sh: load failed; page:" >&2
       head -c 400 /tmp/page.html >&2 || true
       echo "browse.sh: chromium stderr:" >&2
-      tail -n 15 /tmp/chromium.err >&2 || true
+      grep -v -i -E 'dbus|fontconfig|gcm' /tmp/chromium.err | tail -n 25 >&2 || true
     fi
   fi
   sleep "$(shuf -i 1-45 -n 1)"
