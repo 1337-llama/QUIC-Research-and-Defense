@@ -79,7 +79,7 @@ release:
 
     ```sh
     cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
-      --certificate-identity-regexp '^https://github.com/1337-llama/QUIC-Research-and-Defense/\.github/workflows/release\.yml@refs/tags/v' \
+      --certificate-identity-regexp '^https://github.com/1337-llama/QUIC-Research-and-Defense/\.github/workflows/release\.yml@' \
       --certificate-oidc-issuer https://token.actions.githubusercontent.com
     sha256sum --ignore-missing -c checksums.txt
     gh attestation verify {{ .ProjectName }}_{{ .Version }}_linux_amd64.tar.gz --repo 1337-llama/QUIC-Research-and-Defense
