@@ -39,7 +39,7 @@ Each [release](https://github.com/1337-llama/QUIC-Research-and-Defense/releases)
 ```sh
 gh attestation verify quic-research_0.1.0_linux_amd64.tar.gz --repo 1337-llama/QUIC-Research-and-Defense
 cosign verify ghcr.io/1337-llama/quic-research-lab:0.1.0 \
-  --certificate-identity-regexp '^https://github.com/1337-llama/QUIC-Research-and-Defense/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github.com/1337-llama/QUIC-Research-and-Defense/\.github/workflows/release\.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

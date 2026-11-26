@@ -1,0 +1,58 @@
+name: Tag a release
+
+# Creates an annotated release tag on main and runs the release workflow for
+# it. Use this, or push a tag yourself; both produce the same release.
+# The version must already have a section in CHANGELOG.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 0.1.0 (no leading v)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write # push the tag
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a semantic version like 0.1.0"; exit 1
+          fi
+          tag="v$VERSION"
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::$tag already exists"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "$tag"
+          git push origin "refs/tags/$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: tag
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}

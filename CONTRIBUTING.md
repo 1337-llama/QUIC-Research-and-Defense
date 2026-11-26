@@ -63,5 +63,5 @@ The lab module needs its dependencies resolved once. If `lab/go.sum` is missing,
 ## Releasing
 
 1. Move the `[Unreleased]` notes in `CHANGELOG.md` under a new version heading and merge that.
-2. Tag the merge commit and push the tag: `git tag -s v0.2.0 -m v0.2.0 && git push origin v0.2.0`.
+2. Run the **Tag a release** workflow on `main` with the version (for example `0.2.0`). It checks the changelog, tags `main` and runs the release. Pushing a signed tag yourself (`git tag -s v0.2.0 -m v0.2.0 && git push origin v0.2.0`) works too.
 3. The release workflow builds, signs and attests everything, publishes the GitHub release and pushes the image to GHCR. CI's `Release config` job runs a GoReleaser snapshot on every pull request, so a broken release config fails there first.
