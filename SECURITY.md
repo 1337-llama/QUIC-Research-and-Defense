@@ -23,4 +23,8 @@ Issues in scope include, for example:
 
 ## Supported versions
 
-Only the latest commit on `main` is supported.
+Only the latest release and the latest commit on `main` are supported.
+
+## Verifying what you run
+
+Release binaries, their checksums and the lab container image are signed with Sigstore by the release workflow and carry SLSA build provenance. The release notes give the commands to verify them. GitHub Actions in this repository are pinned to commit SHAs, and base images to digests. Supply-chain posture is tracked by [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/1337-llama/QUIC-Research-and-Defense).

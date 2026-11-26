@@ -270,3 +270,14 @@ func TestWaitForFile(t *testing.T) {
 		t.Error("zero poll accepted")
 	}
 }
+
+func TestVersionFlag(t *testing.T) {
+	t.Parallel()
+	// -version needs none of the otherwise required flags.
+	if o, err := parseClient(t, "-version"); err != nil || !o.ShowVersion {
+		t.Errorf("client: %+v, %v", o, err)
+	}
+	if o, err := ParseServer([]string{"-version"}, io.Discard); err != nil || !o.ShowVersion {
+		t.Errorf("server: %+v, %v", o, err)
+	}
+}

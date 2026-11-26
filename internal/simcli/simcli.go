@@ -41,6 +41,7 @@ type ClientOptions struct {
 	MaxBeacons   uint64
 	AllowPublic  bool
 	ListProfiles bool
+	ShowVersion  bool
 	LogFormat    string
 	LogLevel     string
 	// Fallback retries each failed QUIC session over HTTP/2 on TLS/TCP, as
@@ -84,6 +85,7 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	fs.Uint64Var(&o.MaxBeacons, "max-beacons", 0, "stop after this many beacons (0 = no limit)")
 	fs.BoolVar(&o.AllowPublic, "allow-public-targets", false, "allow non-lab destinations (only for infrastructure you own)")
 	fs.BoolVar(&o.ListProfiles, "list-profiles", false, "print the built-in profiles and exit")
+	fs.BoolVar(&o.ShowVersion, "version", false, "print the version and exit")
 	fs.StringVar(&o.LogFormat, "log-format", "text", "log format: text or json")
 	fs.StringVar(&o.LogLevel, "log-level", "info", "log level: debug, info, warn or error")
 
@@ -93,7 +95,7 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	if fs.NArg() > 0 {
 		return ClientOptions{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
 	}
-	if o.ListProfiles {
+	if o.ListProfiles || o.ShowVersion {
 		return o, nil
 	}
 
@@ -207,6 +209,7 @@ type ServerOptions struct {
 	ListenTCP string
 	// SPKIOut, if set, receives the certificate's SPKI hash for browsers.
 	SPKIOut      string
+	ShowVersion  bool
 	Hosts        []string
 	CertOut      string
 	CertValidity time.Duration
@@ -222,6 +225,7 @@ func ParseServer(args []string, stderr io.Writer) (ServerOptions, error) {
 	fs.SetOutput(stderr)
 	fs.StringVar(&o.Listen, "listen", ":443", "UDP `address` for HTTP/3 (empty disables QUIC)")
 	fs.StringVar(&o.ListenTCP, "listen-tcp", "", "TCP `address` for HTTP/2 over TLS (empty disables it)")
+	fs.BoolVar(&o.ShowVersion, "version", false, "print the version and exit")
 	fs.StringVar(&o.SPKIOut, "spki-out", "", "write the certificate's base64 SPKI SHA-256 to this `file` (for Chromium)")
 	fs.StringVar(&hosts, "hosts", "localhost,127.0.0.1", "comma-separated DNS names and IPs for the certificate")
 	fs.StringVar(&o.CertOut, "cert-out", "", "write the generated certificate (PEM, no key) to this `file` (required)")
@@ -233,6 +237,9 @@ func ParseServer(args []string, stderr io.Writer) (ServerOptions, error) {
 	}
 	if fs.NArg() > 0 {
 		return ServerOptions{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
+	}
+	if o.ShowVersion {
+		return o, nil
 	}
 	for _, h := range strings.Split(hosts, ",") {
 		if h = strings.TrimSpace(h); h != "" {

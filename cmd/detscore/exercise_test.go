@@ -141,3 +141,13 @@ func TestTrendCommandErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestVersionCommand(t *testing.T) {
+	t.Parallel()
+	for _, arg := range []string{"version", "-version", "--version"} {
+		code, out, _ := runCLI(t, arg)
+		if code != exitOK || !strings.HasPrefix(out, "detscore ") {
+			t.Errorf("%s: exit %d, %q", arg, code, out)
+		}
+	}
+}
