@@ -3,13 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/labserver"
 	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/labtest"
 )
 
@@ -98,5 +101,68 @@ func TestRunRefusesPublicTarget(t *testing.T) {
 	}, &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "not a lab address") {
 		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+}
+
+// TestRunFallsBackToTCP points the simulator at a server that only speaks
+// HTTP/2 over TCP, as a network that blocks UDP/443 would leave it. Every
+// session must complete over TCP and say so in ground truth.
+func TestRunFallsBackToTCP(t *testing.T) {
+	gen, err := certs.SelfSigned([]string{"localhost"}, time.Now(), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := labserver.New(nil, nil)
+	srv := labserver.NewTLSServer(handler, gen.TLS)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = srv.ServeTLS(ln, "", "") }()
+	t.Cleanup(func() { _ = srv.Close() })
+
+	dir := t.TempDir()
+	ca := filepath.Join(dir, "ca.pem")
+	if err := os.WriteFile(ca, gen.CertPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	truth := filepath.Join(dir, "truth.jsonl")
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	code := run(ctx, []string{
+		"-target", ln.Addr().String(), "-server-name", "localhost", "-ca", ca,
+		"-profile", "quicagent-like", "-interval", "20ms", "-jitter", "0", "-max-beacons", "2",
+		"-fallback", "-quic-timeout", "300ms", "-truth", truth, "-run-id", "fallback",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s", code, stderr.String())
+	}
+	f, err := os.Open(truth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	recs, err := groundtruth.Read(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions, err := groundtruth.Sessions(recs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("sessions = %+v", sessions)
+	}
+	for _, s := range sessions {
+		if s.Transport != "tcp" || s.Remote.String() != ln.Addr().String() {
+			t.Errorf("session = %+v, want a TCP session to %s", s, ln.Addr())
+		}
+	}
+	if !strings.Contains(stderr.String(), "falling back") {
+		t.Errorf("fallback not logged:\n%s", stderr.String())
+	}
+	if handler.Runs()["fallback"] != 2 {
+		t.Errorf("server runs = %v", handler.Runs())
 	}
 }

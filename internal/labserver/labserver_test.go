@@ -2,6 +2,7 @@ package labserver
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
 )
 
@@ -203,5 +205,23 @@ func TestClientInputCannotForgeLogLines(t *testing.T) {
 	h.ServeHTTP(httptest.NewRecorder(), req)
 	if n := strings.Count(buf.String(), "\n"); n != 1 {
 		t.Fatalf("one request produced %d log lines:\n%s", n, buf.String())
+	}
+}
+
+func TestNewTLSServer(t *testing.T) {
+	t.Parallel()
+	g, err := certs.SelfSigned([]string{"c2-tcp"}, t0, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := NewTLSServer(newHandler(), g.TLS)
+	if srv.ReadHeaderTimeout != ReadHeaderTimeout || srv.TLSConfig.MinVersion != tls.VersionTLS12 {
+		t.Errorf("server limits not set: %+v", srv)
+	}
+	if got := srv.TLSConfig.NextProtos; len(got) != 2 || got[0] != "h2" || got[1] != "http/1.1" {
+		t.Errorf("NextProtos = %v", got)
+	}
+	if len(srv.TLSConfig.Certificates) != 1 {
+		t.Error("certificate not installed")
 	}
 }

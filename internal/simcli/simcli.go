@@ -43,6 +43,12 @@ type ClientOptions struct {
 	ListProfiles bool
 	LogFormat    string
 	LogLevel     string
+	// Fallback retries each failed QUIC session over HTTP/2 on TLS/TCP, as
+	// real implants do when UDP/443 is blocked.
+	Fallback bool
+	// QUICTimeout bounds the QUIC handshake, and so how long a blocked
+	// network delays the fallback.
+	QUICTimeout time.Duration
 
 	// Profile is the resolved, validated profile after overrides.
 	Profile profile.Profile
@@ -55,6 +61,7 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	var profileName, profileFile string
 	var interval time.Duration
 	var jitter float64
+	var rotateAfter time.Duration
 
 	fs := flag.NewFlagSet("beaconsim", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -68,6 +75,9 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	fs.StringVar(&profileFile, "profile-file", "", "load a custom profile from this JSON `file`")
 	fs.DurationVar(&interval, "interval", 0, "override the profile's interval")
 	fs.Float64Var(&jitter, "jitter", -1, "override the profile's jitter fraction, 0 <= j < 1 (negative keeps the profile's value)")
+	fs.DurationVar(&rotateAfter, "rotate-after", 0, "override the profile's rotation age (rotate mode only)")
+	fs.BoolVar(&o.Fallback, "fallback", false, "fall back to HTTP/2 over TLS/TCP when a QUIC session cannot be opened")
+	fs.DurationVar(&o.QUICTimeout, "quic-timeout", 10*time.Second, "QUIC handshake timeout")
 	fs.StringVar(&o.RunID, "run-id", "", "identifier for this run (default: <profile>-<unix time>)")
 	fs.Uint64Var(&o.Seed, "seed", 0, "random seed for timing and sizes (default: random, logged at start)")
 	fs.DurationVar(&o.Duration, "duration", 0, "stop after this long (0 = until interrupted)")
@@ -100,6 +110,9 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	if o.CAWait < 0 {
 		errs = append(errs, errors.New("-ca-wait must not be negative"))
 	}
+	if o.QUICTimeout <= 0 {
+		errs = append(errs, errors.New("-quic-timeout must be positive"))
+	}
 	if err := checkLogFlags(o.LogFormat, o.LogLevel); err != nil {
 		errs = append(errs, err)
 	}
@@ -118,6 +131,12 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	}
 	if jitter >= 0 {
 		o.Profile.Schedule.Jitter = jitter
+	}
+	if rotateAfter != 0 {
+		if o.Profile.Connection.Mode != profile.ModeRotate {
+			return ClientOptions{}, fmt.Errorf("-rotate-after needs a profile in %q mode, not %q", profile.ModeRotate, o.Profile.Connection.Mode)
+		}
+		o.Profile.Connection.RotateAfter = profile.Duration(rotateAfter)
 	}
 	if err := o.Profile.Validate(); err != nil {
 		return ClientOptions{}, fmt.Errorf("after overrides: %w", err)
@@ -182,7 +201,12 @@ func WriteProfiles(w io.Writer) error {
 
 // ServerOptions configures beaconsrv.
 type ServerOptions struct {
-	Listen       string
+	// Listen is the UDP address for HTTP/3; empty disables it.
+	Listen string
+	// ListenTCP is the TCP address for HTTP/2 over TLS; empty disables it.
+	ListenTCP string
+	// SPKIOut, if set, receives the certificate's SPKI hash for browsers.
+	SPKIOut      string
 	Hosts        []string
 	CertOut      string
 	CertValidity time.Duration
@@ -196,7 +220,9 @@ func ParseServer(args []string, stderr io.Writer) (ServerOptions, error) {
 	var hosts string
 	fs := flag.NewFlagSet("beaconsrv", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fs.StringVar(&o.Listen, "listen", ":443", "UDP `address` to listen on")
+	fs.StringVar(&o.Listen, "listen", ":443", "UDP `address` for HTTP/3 (empty disables QUIC)")
+	fs.StringVar(&o.ListenTCP, "listen-tcp", "", "TCP `address` for HTTP/2 over TLS (empty disables it)")
+	fs.StringVar(&o.SPKIOut, "spki-out", "", "write the certificate's base64 SPKI SHA-256 to this `file` (for Chromium)")
 	fs.StringVar(&hosts, "hosts", "localhost,127.0.0.1", "comma-separated DNS names and IPs for the certificate")
 	fs.StringVar(&o.CertOut, "cert-out", "", "write the generated certificate (PEM, no key) to this `file` (required)")
 	fs.DurationVar(&o.CertValidity, "cert-validity", 24*time.Hour, "certificate lifetime")
@@ -223,8 +249,8 @@ func ParseServer(args []string, stderr io.Writer) (ServerOptions, error) {
 	if o.CertValidity <= 0 {
 		errs = append(errs, errors.New("-cert-validity must be positive"))
 	}
-	if o.Listen == "" {
-		errs = append(errs, errors.New("-listen must not be empty"))
+	if o.Listen == "" && o.ListenTCP == "" {
+		errs = append(errs, errors.New("at least one of -listen or -listen-tcp is required"))
 	}
 	if err := checkLogFlags(o.LogFormat, o.LogLevel); err != nil {
 		errs = append(errs, err)

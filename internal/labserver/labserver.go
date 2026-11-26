@@ -1,12 +1,14 @@
 // Package labserver implements the lab server's HTTP handler. It is
-// transport-agnostic: the lab module serves it over HTTP/3, and tests serve
-// it over plain HTTP.
+// transport-agnostic: the lab module serves it over HTTP/3, NewTLSServer
+// serves it over HTTP/2 on TLS (the fallback path), and tests serve it over
+// plain HTTP.
 //
 // The handler acknowledges simulator beacons and serves a static page. It
 // never returns instructions of any kind.
 package labserver
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
@@ -155,4 +157,23 @@ func logSafe(s string) string {
 		s = s[:maxLogValue] + "...(truncated)"
 	}
 	return s
+}
+
+// ReadHeaderTimeout bounds how long a TCP client may take to send headers.
+const ReadHeaderTimeout = 10 * time.Second
+
+// NewTLSServer returns an HTTP server that serves h over TLS, offering h2
+// and http/1.1. Call ServeTLS(listener, "", "") or ListenAndServeTLS("", "")
+// on it; the certificate comes from cert.
+func NewTLSServer(h http.Handler, cert tls.Certificate) *http.Server {
+	return &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: ReadHeaderTimeout,
+		IdleTimeout:       2 * time.Minute,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   []string{"h2", "http/1.1"},
+			MinVersion:   tls.VersionTLS12,
+		},
+	}
 }

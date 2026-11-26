@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
@@ -80,9 +81,18 @@ func FromConns(conns []zeeklog.Conn, s Spec) ([]groundtruth.Record, error) {
 			SessionID: id,
 			Local:     c.Orig,
 			Remote:    c.Resp,
+			Transport: transport(c),
 			Start:     c.TS,
 			End:       c.TS.Add(c.Duration),
 		})
 	}
 	return out, nil
+}
+
+// transport maps Zeek's protocol to the ground-truth transport name.
+func transport(c zeeklog.Conn) string {
+	if strings.EqualFold(c.Proto, "tcp") {
+		return "tcp"
+	}
+	return "quic"
 }

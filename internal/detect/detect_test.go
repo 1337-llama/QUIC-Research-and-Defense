@@ -250,3 +250,53 @@ func TestReadAlertsErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestIncludeTLSCatchesHTTPSFallback(t *testing.T) {
+	t.Parallel()
+	tcp := func(c *zeeklog.Conn) { c.Proto = "tcp"; c.Service = []string{"ssl"} }
+	var conns []zeeklog.Conn
+	for i := range 6 {
+		conns = append(conns, conn(fmt.Sprintf("t%d", i), fmt.Sprintf("10.0.0.2:%d", 6000+i), "192.0.2.9:8443",
+			time.Duration(i)*time.Minute, tcp))
+	}
+	conns = append(conns, conn("long", "10.0.0.2:7000", "10.0.0.1:443", 0, tcp, lasting(2*time.Hour)))
+	cfg := Config{
+		LongConnection: time.Hour, StandardPorts: []uint16{443},
+		ApprovedNets:     []netip.Prefix{netip.MustParsePrefix("10.0.0.0/24")},
+		PeriodicMinConns: 5, PeriodicMaxCV: 0.35,
+	}
+
+	off, err := Run(cfg, conns, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(off) != 0 {
+		t.Fatalf("TLS conns should be ignored by default, got %+v", off)
+	}
+
+	cfg.IncludeTLS = true
+	on, err := Run(cfg, conns, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for det, want := range map[string]int{LongConnection: 1, NonStandardPort: 6, UnapprovedDestination: 6, PeriodicConnections: 6} {
+		if got := len(onlyDetector(on, det)); got != want {
+			t.Errorf("%s: %d alerts, want %d", det, got, want)
+		}
+	}
+	if d := onlyDetector(on, NonStandardPort)[0].Detail; d != "TLS on TCP/8443" {
+		t.Errorf("port detail = %q", d)
+	}
+	if d := onlyDetector(on, LongConnection)[0].Detail; !strings.HasPrefix(d, "TLS connection") {
+		t.Errorf("long detail = %q", d)
+	}
+}
+
+func TestDetailDefaultsToUDP(t *testing.T) {
+	t.Parallel()
+	c := conn("u", "10.0.0.2:5000", "10.0.0.1:8443", 0, func(c *zeeklog.Conn) { c.Proto = "" })
+	alerts, err := Run(Config{StandardPorts: []uint16{443}}, []zeeklog.Conn{c}, nil)
+	if err != nil || len(alerts) != 1 || alerts[0].Detail != "QUIC on UDP/8443" {
+		t.Fatalf("alerts = %+v, err = %v", alerts, err)
+	}
+}

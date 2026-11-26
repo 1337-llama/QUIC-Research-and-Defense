@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
@@ -18,8 +19,10 @@ import (
 
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/beacon"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/fallback"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/tlstransport"
 	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quictransport"
 )
 
@@ -84,16 +87,13 @@ func simulate(ctx context.Context, opts simcli.ClientOptions, stdout io.Writer, 
 		keyLog = w
 	}
 
-	tr, err := quictransport.New(quictransport.Config{
-		Target: opts.Target, ServerName: opts.ServerName, RootCAs: pool, KeyLog: keyLog,
-		QUIC: opts.Profile.QUIC, Policy: opts.Policy(),
-	})
+	tr, err := newTransport(opts, pool, keyLog, log)
 	if err != nil {
 		return err
 	}
 
 	log.Info("starting run", "run_id", opts.RunID, "profile", opts.Profile.Name, "label", opts.Profile.Label,
-		"target", opts.Target, "seed", opts.Seed, "duration", opts.Duration, "max_beacons", opts.MaxBeacons)
+		"target", opts.Target, "fallback", opts.Fallback, "seed", opts.Seed, "duration", opts.Duration, "max_beacons", opts.MaxBeacons)
 	stats, err := beacon.Run(ctx, beacon.Config{
 		Profile: opts.Profile, RunID: opts.RunID, Seed: opts.Seed, Transport: tr,
 		Recorder: groundtruth.NewWriter(truthW), Logger: log,
@@ -104,4 +104,25 @@ func simulate(ctx context.Context, opts simcli.ClientOptions, stdout io.Writer, 
 		return err
 	}
 	return closeTruth()
+}
+
+// newTransport builds the QUIC transport and, with -fallback, wraps it so a
+// session that cannot be opened over QUIC is opened over HTTP/2 on TLS/TCP
+// to the same target. The runner opens sessions one at a time, so the two
+// transports never write the key log concurrently.
+func newTransport(opts simcli.ClientOptions, pool *x509.CertPool, keyLog io.Writer, log *slog.Logger) (beacon.Transport, error) {
+	quic, err := quictransport.New(quictransport.Config{
+		Target: opts.Target, ServerName: opts.ServerName, RootCAs: pool, KeyLog: keyLog,
+		QUIC: opts.Profile.QUIC, Policy: opts.Policy(), HandshakeTimeout: opts.QUICTimeout,
+	})
+	if err != nil || !opts.Fallback {
+		return quic, err
+	}
+	tcp, err := tlstransport.New(tlstransport.Config{
+		Target: opts.Target, ServerName: opts.ServerName, RootCAs: pool, KeyLog: keyLog, Policy: opts.Policy(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &fallback.Transport{Primary: quic, Fallback: tcp, Log: log}, nil
 }

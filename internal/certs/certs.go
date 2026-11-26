@@ -6,9 +6,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -81,4 +83,12 @@ func PoolFromPEM(data []byte) (*x509.CertPool, error) {
 		return nil, errors.New("certs: no PEM certificates found")
 	}
 	return pool, nil
+}
+
+// SPKIHash returns the base64 SHA-256 hash of the certificate's public key,
+// the format Chrome's --ignore-certificate-errors-spki-list flag expects.
+// The lab uses it to let a real headless browser trust a lab server.
+func SPKIHash(cert *x509.Certificate) string {
+	sum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+	return base64.StdEncoding.EncodeToString(sum[:])
 }

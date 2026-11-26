@@ -48,6 +48,29 @@ func TestParseClientDefaults(t *testing.T) {
 	if o.Policy().AllowPublic {
 		t.Error("default policy must not allow public targets")
 	}
+	if o.Fallback || o.QUICTimeout != 10*time.Second {
+		t.Errorf("fallback defaults = %v %v", o.Fallback, o.QUICTimeout)
+	}
+}
+
+func TestParseClientFallbackAndRotation(t *testing.T) {
+	t.Parallel()
+	o, err := parseClient(t, "-target", "c2-tcp:443", "-ca", "ca.pem", "-profile", "rotating-session",
+		"-fallback", "-quic-timeout", "3s", "-rotate-after", "2m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.Fallback || o.QUICTimeout != 3*time.Second || o.Profile.Connection.RotateAfter.Std() != 2*time.Minute {
+		t.Errorf("o = %+v", o)
+	}
+	for name, args := range map[string][]string{
+		"rotate on persistent": {"-profile", "merlin-like", "-rotate-after", "2m"},
+		"zero quic timeout":    {"-profile", "merlin-like", "-quic-timeout", "0s"},
+	} {
+		if _, err := parseClient(t, append([]string{"-target", "c2:443", "-ca", "ca.pem"}, args...)...); err == nil {
+			t.Errorf("%s: expected error", name)
+		}
+	}
 }
 
 func TestParseClientOverrides(t *testing.T) {
@@ -144,11 +167,21 @@ func TestParseServer(t *testing.T) {
 	if o.Listen != ":443" || len(o.Hosts) != 2 || o.Hosts[0] != "c2" || o.Hosts[1] != "172.28.0.10" || o.CertValidity != 24*time.Hour {
 		t.Errorf("o = %+v", o)
 	}
+	if o.ListenTCP != "" || o.SPKIOut != "" {
+		t.Errorf("TCP listener should be off by default: %+v", o)
+	}
+	tcpOnly, err := ParseServer([]string{"-cert-out", "c.pem", "-listen", "", "-listen-tcp", ":443", "-spki-out", "s"}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tcpOnly.Listen != "" || tcpOnly.ListenTCP != ":443" || tcpOnly.SPKIOut != "s" {
+		t.Errorf("tcp-only = %+v", tcpOnly)
+	}
 	bad := map[string][]string{
 		"no cert-out":   {},
 		"no hosts":      {"-cert-out", "c", "-hosts", " , "},
 		"zero validity": {"-cert-out", "c", "-cert-validity", "0s"},
-		"empty listen":  {"-cert-out", "c", "-listen", ""},
+		"no listeners":  {"-cert-out", "c", "-listen", ""},
 		"bad log":       {"-cert-out", "c", "-log-format", "xml"},
 		"positional":    {"-cert-out", "c", "x"},
 		"unknown flag":  {"-nope"},
