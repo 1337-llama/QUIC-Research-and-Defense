@@ -16,6 +16,7 @@ This documentation explains how the QUIC protocol works, how attackers abuse it 
 7. [The detection lab](07-detection-lab.md): capture, Zeek, Suricata and precision/recall scoring in Docker
 8. [Emulating Merlin in a lab](08-merlin-lab-guide.md): validating detections against a real public framework, safely
 9. [Architecture and testing](09-architecture-and-testing.md): module design and test strategy
+10. [Analyst exercises and results dashboard](10-analyst-exercises.md): hunting with the answers held back, grading, and nightly precision/recall over time
 
 [References](references.md)
 

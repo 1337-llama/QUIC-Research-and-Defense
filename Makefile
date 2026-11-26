@@ -91,6 +91,10 @@ lab-image: ## Build the lab Docker image
 lab-run: ## Run the full Docker detection lab (Linux host, ~8 minutes)
 	lab/harness/run.sh
 
+.PHONY: lab-exercise
+lab-exercise: ## Build an analyst exercise: randomized lab run, answer key held back
+	LAB_EXERCISE=1 lab/harness/run.sh
+
 .PHONY: clean
 clean: ## Remove build and lab outputs
 	rm -rf coverage.out lab/harness/out

@@ -34,19 +34,23 @@ services:
   # "C2" lab server: what the malicious profiles beacon to.
   c2:
     <<: *server
-    command: [beaconsrv, -listen, ":443", -hosts, "c2,172.28.0.10", -cert-out, /shared/c2.pem, -log-format, json]
+    command: [beaconsrv, -listen, ":443", -hosts, "${LAB_C2_NAME:-c2},172.28.0.10", -cert-out, /shared/c2.pem, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.10}
+      labnet:
+        ipv4_address: 172.28.0.10
+        aliases: ["${LAB_C2_NAME:-c2}"]
 
   # A second C2 server that only speaks HTTP/2 over TLS/TCP. To a simulator
   # it looks exactly like a network that blocks UDP/443, so the fallback
   # profile's QUIC attempts fail and it beacons over HTTPS instead.
   c2-tcp:
     <<: *server
-    command: [beaconsrv, -listen, "", -listen-tcp, ":443", -hosts, "c2-tcp,172.28.0.11", -cert-out, /shared/c2-tcp.pem,
-              -log-format, json]
+    command: [beaconsrv, -listen, "", -listen-tcp, ":443", -hosts, "${LAB_C2TCP_NAME:-c2-tcp},172.28.0.11",
+              -cert-out, /shared/c2-tcp.pem, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.11}
+      labnet:
+        ipv4_address: 172.28.0.11
+        aliases: ["${LAB_C2TCP_NAME:-c2-tcp}"]
 
   # "CDN" lab server: the approved destination benign traffic uses. It also
   # publishes its SPKI hash so a real Chromium can trust it.
@@ -59,65 +63,65 @@ services:
 
   sim-merlin:
     <<: *sim
-    command: [beaconsim, -profile, merlin-like, -target, "c2:443", -ca, /shared/c2.pem,
-              -duration, "${LAB_DURATION:-6m}", -run-id, merlin, -seed, "101",
+    command: [beaconsim, -profile, merlin-like, -target, "${LAB_C2_NAME:-c2}:443", -ca, /shared/c2.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, merlin, -seed, "${LAB_SEED_MERLIN:-101}",
               -truth, /out/truth-merlin.jsonl, -keylog, /out/keys-merlin.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.30}
+      labnet: {ipv4_address: "${LAB_IP_MERLIN:-172.28.0.30}"}
 
   sim-quicagent:
     <<: *sim
-    command: [beaconsim, -profile, quicagent-like, -target, "c2:443", -ca, /shared/c2.pem,
-              -duration, "${LAB_DURATION:-6m}", -run-id, quicagent, -seed, "102",
+    command: [beaconsim, -profile, quicagent-like, -target, "${LAB_C2_NAME:-c2}:443", -ca, /shared/c2.pem,
+              -duration, "${LAB_DURATION:-6m}", -run-id, quicagent, -seed, "${LAB_SEED_QUICAGENT:-102}",
               -truth, /out/truth-quicagent.jsonl, -keylog, /out/keys-quicagent.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.31}
+      labnet: {ipv4_address: "${LAB_IP_QUICAGENT:-172.28.0.31}"}
 
   # QUIC first, HTTPS over TCP when QUIC fails: what blocking UDP/443 leaves.
   sim-fallback:
     <<: *sim
-    command: [beaconsim, -profile, quicagent-like, -target, "c2-tcp:443", -ca, /shared/c2-tcp.pem,
+    command: [beaconsim, -profile, quicagent-like, -target, "${LAB_C2TCP_NAME:-c2-tcp}:443", -ca, /shared/c2-tcp.pem,
               -fallback, -quic-timeout, 3s, -interval, 30s,
-              -duration, "${LAB_DURATION:-6m}", -run-id, fallback, -seed, "103",
+              -duration, "${LAB_DURATION:-6m}", -run-id, fallback, -seed, "${LAB_SEED_FALLBACK:-103}",
               -truth, /out/truth-fallback.jsonl, -keylog, /out/keys-fallback.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.32}
+      labnet: {ipv4_address: "${LAB_IP_FALLBACK:-172.28.0.32}"}
 
   # Hard case: a handful of widely jittered beacons, too few for the
   # periodicity detector within a short run.
   sim-lowslow:
     <<: *sim
-    command: [beaconsim, -profile, low-and-slow, -target, "c2:443", -ca, /shared/c2.pem, -interval, 90s,
-              -duration, "${LAB_DURATION:-6m}", -run-id, lowslow, -seed, "104",
+    command: [beaconsim, -profile, low-and-slow, -target, "${LAB_C2_NAME:-c2}:443", -ca, /shared/c2.pem, -interval, 90s,
+              -duration, "${LAB_DURATION:-6m}", -run-id, lowslow, -seed, "${LAB_SEED_LOWSLOW:-104}",
               -truth, /out/truth-lowslow.jsonl, -keylog, /out/keys-lowslow.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.33}
+      labnet: {ipv4_address: "${LAB_IP_LOWSLOW:-172.28.0.33}"}
 
   # Hard case: periodic beacons on connections replaced before they get
   # long enough for the long-connection detector.
   sim-rotating:
     <<: *sim
-    command: [beaconsim, -profile, rotating-session, -target, "c2:443", -ca, /shared/c2.pem, -rotate-after, 2m,
-              -duration, "${LAB_DURATION:-6m}", -run-id, rotating, -seed, "105",
+    command: [beaconsim, -profile, rotating-session, -target, "${LAB_C2_NAME:-c2}:443", -ca, /shared/c2.pem, -rotate-after, 2m,
+              -duration, "${LAB_DURATION:-6m}", -run-id, rotating, -seed, "${LAB_SEED_ROTATING:-105}",
               -truth, /out/truth-rotating.jsonl, -keylog, /out/keys-rotating.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.34}
+      labnet: {ipv4_address: "${LAB_IP_ROTATING:-172.28.0.34}"}
 
   bg-browser-1:
     <<: *sim
     command: [beaconsim, -profile, browser-like, -target, "cdn:443", -ca, /shared/cdn.pem,
-              -duration, "${LAB_DURATION:-6m}", -run-id, browser-1, -seed, "201",
+              -duration, "${LAB_DURATION:-6m}", -run-id, browser-1, -seed, "${LAB_SEED_BROWSER1:-201}",
               -truth, /out/truth-browser-1.jsonl, -keylog, /out/keys-browser-1.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.40}
+      labnet: {ipv4_address: "${LAB_IP_BROWSER1:-172.28.0.40}"}
 
   bg-browser-2:
     <<: *sim
     command: [beaconsim, -profile, browser-like, -target, "cdn:443", -ca, /shared/cdn.pem,
-              -duration, "${LAB_DURATION:-6m}", -run-id, browser-2, -seed, "202",
+              -duration, "${LAB_DURATION:-6m}", -run-id, browser-2, -seed, "${LAB_SEED_BROWSER2:-202}",
               -truth, /out/truth-browser-2.jsonl, -keylog, /out/keys-browser-2.log, -log-format, json]
     networks:
-      labnet: {ipv4_address: 172.28.0.41}
+      labnet: {ipv4_address: "${LAB_IP_BROWSER2:-172.28.0.41}"}
 
   # Real browser background: headless Chromium fetching the CDN page over
   # QUIC at random intervals. Its connections are labeled benign from Zeek's
@@ -133,7 +137,7 @@ services:
       - ${LAB_OUT:-./out}/shared:/shared:ro
       - ./chromium:/lab:ro
     networks:
-      labnet: {ipv4_address: 172.28.0.50}
+      labnet: {ipv4_address: "${LAB_IP_CHROMIUM:-172.28.0.50}"}
 
   # Packet capture of the lab bridge: all UDP, plus TCP/443 for the HTTPS
   # fallback and the browser.

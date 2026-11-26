@@ -4,6 +4,11 @@ name: Lab end-to-end
 # network, captured and analyzed by Zeek and Suricata, then scored against
 # ground truth. The gates encode the results the reference detections are
 # expected to achieve on the lab's built-in scenario.
+#
+# Scheduled runs on main also publish the results to the lab-results branch:
+# a history of every run, a README dashboard and a trend chart. A manual run
+# with "exercise" set builds an analyst exercise and its answer key as
+# separate artifacts.
 
 on:
   pull_request:
@@ -22,6 +27,10 @@ on:
       duration:
         description: Simulator run time
         default: 6m
+      exercise:
+        description: Build an analyst exercise (randomized hosts, answer key held back)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,11 +43,15 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      passed: ${{ steps.lab.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v7
       - name: Run the lab
+        id: lab
         env:
           LAB_DURATION: ${{ inputs.duration || '6m' }}
+          LAB_EXERCISE: ${{ inputs.exercise && '1' || '0' }}
         run: |
           lab/harness/run.sh \
             -require '(any):recall>=0.95' \
@@ -57,9 +70,81 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload lab outputs
-        if: always()
+        # An exercise run's full outputs include the answers; they ship only
+        # in the answer-key artifact.
+        if: always() && !inputs.exercise
         uses: actions/upload-artifact@v7
         with:
           name: lab-outputs
           path: lab/harness/out/
           retention-days: 14
+      - name: Upload the exercise
+        if: always() && inputs.exercise
+        uses: actions/upload-artifact@v7
+        with:
+          name: exercise
+          path: lab/harness/out/exercise.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload the answer key
+        if: always() && inputs.exercise
+        uses: actions/upload-artifact@v7
+        with:
+          name: answer-key
+          path: lab/harness/out/answer-key.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish results dashboard
+    needs: e2e
+    # Nightly (and manual, non-exercise) runs on main only, and only when the
+    # lab produced a report: a failed gate is published, a broken run is not.
+    if: >-
+      always() && github.ref == 'refs/heads/main' && !inputs.exercise &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: lab-results
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Fetch the lab report
+        uses: actions/download-artifact@v8
+        with:
+          name: lab-outputs
+          path: out
+      - name: Check out the results branch
+        run: |
+          if git ls-remote --exit-code --heads origin lab-results >/dev/null; then
+            git fetch --depth=1 origin lab-results
+            git worktree add results FETCH_HEAD
+          else
+            git worktree add --detach results
+            git -C results checkout --orphan lab-results
+            git -C results rm -rq .
+          fi
+      - name: Update history and dashboard
+        env:
+          PASSED: ${{ needs.e2e.outputs.passed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          test -s out/report.json || { echo "::error::the lab produced no report.json"; exit 1; }
+          go run ./cmd/detscore trend -history results/history.jsonl -report out/report.json \
+            -commit "$GITHUB_SHA" -passed="$PASSED" -run-url "$RUN_URL" -repo-url "$REPO_URL" -out-dir results
+      - name: Push
+        working-directory: results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.jsonl README.md trend.svg
+          git commit -q -m "lab results for ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
+          git push origin HEAD:lab-results
