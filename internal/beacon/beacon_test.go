@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/groundtruth"
-	"github.com/1337-llama/quic_research/internal/labserver"
-	"github.com/1337-llama/quic_research/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/labserver"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 )
 
 var t0 = time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)

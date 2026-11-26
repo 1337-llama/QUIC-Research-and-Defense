@@ -19,7 +19,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/1337-llama/quic_research/internal/payload"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
 )
 
 // IndexHTML is served for GET requests.

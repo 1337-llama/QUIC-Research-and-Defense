@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/zeeklog"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/zeeklog"
 )
 
 var t0 = time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)

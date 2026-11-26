@@ -7,6 +7,8 @@ package simcli
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,9 +19,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/payload"
-	"github.com/1337-llama/quic_research/internal/profile"
-	"github.com/1337-llama/quic_research/internal/safety"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/payload"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/safety"
 )
 
 // FileReader reads a file. os.ReadFile satisfies it.
@@ -67,7 +69,7 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 	fs.DurationVar(&interval, "interval", 0, "override the profile's interval")
 	fs.Float64Var(&jitter, "jitter", -1, "override the profile's jitter fraction, 0 <= j < 1 (negative keeps the profile's value)")
 	fs.StringVar(&o.RunID, "run-id", "", "identifier for this run (default: <profile>-<unix time>)")
-	fs.Uint64Var(&o.Seed, "seed", 0, "random seed for timing and sizes (default: derived from the clock)")
+	fs.Uint64Var(&o.Seed, "seed", 0, "random seed for timing and sizes (default: random, logged at start)")
 	fs.DurationVar(&o.Duration, "duration", 0, "stop after this long (0 = until interrupted)")
 	fs.Uint64Var(&o.MaxBeacons, "max-beacons", 0, "stop after this many beacons (0 = no limit)")
 	fs.BoolVar(&o.AllowPublic, "allow-public-targets", false, "allow non-lab destinations (only for infrastructure you own)")
@@ -129,9 +131,21 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 		return ClientOptions{}, fmt.Errorf("-run-id: %w", err)
 	}
 	if o.Seed == 0 {
-		o.Seed = uint64(t.UnixNano())
+		o.Seed = randomSeed()
 	}
 	return o, nil
+}
+
+// randomSeed returns a non-zero seed. The run logs it, so any run can be
+// reproduced with -seed.
+func randomSeed() uint64 {
+	var b [8]byte
+	for {
+		_, _ = crand.Read(b[:]) // crypto/rand.Read never returns an error
+		if s := binary.LittleEndian.Uint64(b[:]); s != 0 {
+			return s
+		}
+	}
 }
 
 func resolveProfile(name, file string, readFile FileReader) (profile.Profile, error) {

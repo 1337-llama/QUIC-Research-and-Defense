@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 )
 
 func jitterSchedule(iv time.Duration, j float64) profile.Schedule {

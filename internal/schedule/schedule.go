@@ -9,7 +9,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/1337-llama/quic_research/internal/profile"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 )
 
 // MaxExponentialFactor caps exponential draws at this multiple of the mean.

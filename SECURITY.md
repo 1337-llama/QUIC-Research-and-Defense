@@ -13,7 +13,7 @@ Run it only on networks you own or are authorized to test, and tell your SOC bef
 
 ## Reporting a vulnerability
 
-Please report security issues privately through [GitHub's private vulnerability reporting](https://github.com/1337-llama/quic_research/security/advisories/new) rather than in a public issue. Include the steps to reproduce and the impact you expect.
+Please report security issues privately through [GitHub's private vulnerability reporting](https://github.com/1337-llama/QUIC-Research-and-Defense/security/advisories/new) rather than in a public issue. Include the steps to reproduce and the impact you expect.
 
 Issues in scope include, for example:
 
