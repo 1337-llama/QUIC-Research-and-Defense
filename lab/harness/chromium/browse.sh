@@ -28,22 +28,34 @@ while [ ! -s "$spki_file" ]; do
 done
 spki="$(cat "$spki_file")"
 
+# Gaps between page loads are drawn from an exponential distribution
+# (mean ~25 s), like the simulator's browser-like profile and like people:
+# their coefficient of variation is about 1, far from a beacon's. The table
+# holds the distribution's 20 quantiles, because this image has no awk.
+gaps="1 2 3 5 6 8 10 12 14 16 19 21 25 28 32 37 44 52 65 92"
+
 end=$(($(date +%s) + seconds))
 loads=0
 while [ "$(date +%s)" -lt "$end" ]; do
+  # Each load runs in the background for a fixed lifetime, so its duration
+  # doesn't add to the gap before the next one.
   # --user-data-dir is required for --ignore-certificate-errors-spki-list to
   # take effect. The resolver rule pins the CDN's address so name resolution
   # inside the browser can't be why a load fails.
-  timeout 12 /headless-shell/headless-shell \
-    --no-sandbox --headless --disable-gpu --no-first-run --disable-dev-shm-usage \
-    --user-data-dir="/tmp/chromium-$loads" \
-    --host-resolver-rules="MAP cdn 172.28.0.20" \
-    --enable-quic --origin-to-force-quic-on=cdn:443 \
-    --ignore-certificate-errors-spki-list="$spki" \
-    --dump-dom https://cdn/ >/dev/null 2>&1 || true
-  rm -rf "/tmp/chromium-$loads"
+  (
+    timeout 12 /headless-shell/headless-shell \
+      --no-sandbox --headless --disable-gpu --no-first-run --disable-dev-shm-usage \
+      --user-data-dir="/tmp/chromium-$loads" \
+      --host-resolver-rules="MAP cdn 172.28.0.20" \
+      --enable-quic --origin-to-force-quic-on=cdn:443 \
+      --ignore-certificate-errors-spki-list="$spki" \
+      --dump-dom https://cdn/ >/dev/null 2>&1 || true
+    rm -rf "/tmp/chromium-$loads"
+  ) &
   loads=$((loads + 1))
-  sleep "$(shuf -i 1-45 -n 1)"
+  # shellcheck disable=SC2086 # split the table into shuf's arguments
+  sleep "$(shuf -n 1 -e $gaps)"
 done
+wait
 
 echo "browse.sh: started $loads page loads"
