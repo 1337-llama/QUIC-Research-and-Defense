@@ -58,16 +58,16 @@ func TestServeAndShutdown(t *testing.T) {
 		t.Fatal("server did not start")
 	}
 
-	pem, err := os.ReadFile(certPath)
-	if err != nil || !strings.Contains(string(pem), "BEGIN CERTIFICATE") || strings.Contains(string(pem), "PRIVATE KEY") {
-		t.Fatalf("published certificate is wrong: %v\n%s", err, pem)
+	certPEM, err := os.ReadFile(certPath)
+	if err != nil || !strings.Contains(string(certPEM), "BEGIN CERTIFICATE") || strings.Contains(string(certPEM), "PRIVATE KEY") {
+		t.Fatalf("published certificate is wrong: %v\n%s", err, certPEM)
 	}
 	matches, _ := filepath.Glob(filepath.Join(dir, ".tmp-*"))
 	if len(matches) != 0 {
 		t.Errorf("temporary files left behind: %v", matches)
 	}
 
-	pool, err := certs.PoolFromPEM(pem)
+	pool, err := certs.PoolFromPEM(certPEM)
 	if err != nil {
 		t.Fatal(err)
 	}

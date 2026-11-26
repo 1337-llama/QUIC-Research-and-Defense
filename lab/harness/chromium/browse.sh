@@ -28,15 +28,26 @@ failures=0
 while [ "$(date +%s)" -lt "$end" ]; do
   # --user-data-dir is required for --ignore-certificate-errors-spki-list
   # to take effect.
+  # The resolver rule pins the CDN's address, so name resolution inside the
+  # browser can't be the reason a load fails.
   if timeout 30 /headless-shell/headless-shell \
     --no-sandbox --headless --disable-gpu --no-first-run \
     --user-data-dir=/tmp/chromium-profile \
+    --host-resolver-rules="MAP cdn 172.28.0.20" \
     --enable-quic --origin-to-force-quic-on=cdn:443 \
     --ignore-certificate-errors-spki-list="$spki" \
-    --dump-dom https://cdn/ 2>/dev/null | grep -q "lab server"; then
+    --dump-dom https://cdn/ >/tmp/page.html 2>/tmp/chromium.err &&
+    grep -q "lab server" /tmp/page.html; then
     loads=$((loads + 1))
   else
     failures=$((failures + 1))
+    # Show why the first couple of loads failed; after that it's noise.
+    if [ "$failures" -le 2 ]; then
+      echo "browse.sh: load failed; page:" >&2
+      head -c 400 /tmp/page.html >&2 || true
+      echo "browse.sh: chromium stderr:" >&2
+      tail -n 15 /tmp/chromium.err >&2 || true
+    fi
   fi
   sleep "$(shuf -i 1-45 -n 1)"
 done
