@@ -31,11 +31,11 @@ jobs:
           run() { echo "::group::$1"; shift; docker run --rm --network "$net" --shm-size 256m --entrypoint sh $img -c "$*" 2>&1 | grep -v -i -E 'dbus|fontconfig' | tail -60; echo "::endgroup::"; }
           hs="timeout 20 /headless-shell/headless-shell --no-sandbox --user-data-dir=/tmp/p"
           url="'data:text/html,<p>ok</p>'"
-          run "A default-flags" "$hs --use-gl=angle --use-angle=swiftshader --dump-dom $url; echo exit=\$?"
-          run "B headless disable-gpu" "$hs --headless --disable-gpu --dump-dom $url; echo exit=\$?"
-          run "C no-zygote single-process" "$hs --headless --disable-gpu --no-zygote --single-process --dump-dom $url; echo exit=\$?"
-          run "D disable-dev-shm crash" "$hs --headless --disable-gpu --disable-dev-shm-usage --disable-crash-reporter --disable-breakpad --dump-dom $url; echo exit=\$?"
-          run "E screenshot" "cd /tmp && $hs --headless --disable-gpu --screenshot $url; echo exit=\$?; ls -la /tmp/*.png"
-          run "F verbose" "$hs --headless --disable-gpu --enable-logging=stderr --v=1 --dump-dom $url 2>&1 | head -60; echo; echo exit=\$?"
-          run "G https forced quic swiftshader" "$hs --use-gl=angle --use-angle=swiftshader --host-resolver-rules='MAP cdn 172.28.0.20' --enable-quic --origin-to-force-quic-on=cdn:443 --ignore-certificate-errors-spki-list=$spki --dump-dom https://cdn/; echo exit=\$?"
+          q="--host-resolver-rules='MAP cdn 172.28.0.20' --enable-quic --origin-to-force-quic-on=cdn:443 --ignore-certificate-errors-spki-list=$spki"
+          run "Q1 forced quic dump-dom" "timeout 12 /headless-shell/headless-shell --no-sandbox --user-data-dir=/tmp/p --headless --disable-gpu $q --log-net-log=/tmp/n.json --dump-dom https://cdn/; echo exit=\$?; grep -o -E 'QUIC_SESSION[A-Z_]*|\"net_error\":-?[0-9]+|\"quic_error\":[0-9]+|h3' /tmp/n.json | sort | uniq -c | sort -rn | head -25"
+          docker stop cdnx >/dev/null; docker logs cdnx 2>&1 | grep -E 'stopped' ; docker start cdnx >/dev/null; sleep 3
+          run "Q2 forced quic no dump" "timeout 12 /headless-shell/headless-shell --no-sandbox --user-data-dir=/tmp/p --headless --disable-gpu $q https://cdn/; echo exit=\$?"
+          docker stop cdnx >/dev/null; docker logs cdnx 2>&1 | grep -E 'stopped' ; docker start cdnx >/dev/null; sleep 3
+          run "T1 tcp" "timeout 12 /headless-shell/headless-shell --no-sandbox --user-data-dir=/tmp/p --headless --disable-gpu --host-resolver-rules='MAP cdn 172.28.0.20' --ignore-certificate-errors-spki-list=$spki https://cdn/; echo exit=\$?"
+          docker stop cdnx >/dev/null; docker logs cdnx 2>&1 | grep -E 'stopped'
           docker logs cdnx 2>&1 | tail -20
