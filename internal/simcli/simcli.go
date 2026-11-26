@@ -128,20 +128,8 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 		return ClientOptions{}, errors.Join(errs...)
 	}
 
-	if interval != 0 {
-		o.Profile.Schedule.Interval = profile.Duration(interval)
-	}
-	if jitter >= 0 {
-		o.Profile.Schedule.Jitter = jitter
-	}
-	if rotateAfter != 0 {
-		if o.Profile.Connection.Mode != profile.ModeRotate {
-			return ClientOptions{}, fmt.Errorf("-rotate-after needs a profile in %q mode, not %q", profile.ModeRotate, o.Profile.Connection.Mode)
-		}
-		o.Profile.Connection.RotateAfter = profile.Duration(rotateAfter)
-	}
-	if err := o.Profile.Validate(); err != nil {
-		return ClientOptions{}, fmt.Errorf("after overrides: %w", err)
+	if err := applyOverrides(&o.Profile, interval, jitter, rotateAfter); err != nil {
+		return ClientOptions{}, err
 	}
 
 	t := now()
@@ -155,6 +143,27 @@ func ParseClient(args []string, stderr io.Writer, now func() time.Time, readFile
 		o.Seed = randomSeed()
 	}
 	return o, nil
+}
+
+// applyOverrides applies the command-line timing overrides to p and
+// re-validates it. Zero (or negative jitter) keeps the profile's value.
+func applyOverrides(p *profile.Profile, interval time.Duration, jitter float64, rotateAfter time.Duration) error {
+	if interval != 0 {
+		p.Schedule.Interval = profile.Duration(interval)
+	}
+	if jitter >= 0 {
+		p.Schedule.Jitter = jitter
+	}
+	if rotateAfter != 0 {
+		if p.Connection.Mode != profile.ModeRotate {
+			return fmt.Errorf("-rotate-after needs a profile in %q mode, not %q", profile.ModeRotate, p.Connection.Mode)
+		}
+		p.Connection.RotateAfter = profile.Duration(rotateAfter)
+	}
+	if err := p.Validate(); err != nil {
+		return fmt.Errorf("after overrides: %w", err)
+	}
+	return nil
 }
 
 // randomSeed returns a non-zero seed. The run logs it, so any run can be
