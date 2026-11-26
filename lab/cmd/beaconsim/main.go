@@ -23,6 +23,7 @@ import (
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/tlstransport"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/version"
 	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quictransport"
 )
 
@@ -41,6 +42,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "beaconsim: %v\n", err)
 		return 2
+	}
+	if opts.ShowVersion {
+		fmt.Fprintf(stdout, "beaconsim %s\n", version.String())
+		return 0
 	}
 	if opts.ListProfiles {
 		if err := simcli.WriteProfiles(stdout); err != nil {

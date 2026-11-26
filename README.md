@@ -3,6 +3,8 @@
 [![CI](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/ci.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/ci.yml)
 [![Lab end-to-end](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/lab-e2e.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/lab-e2e.yml)
 [![CodeQL](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/codeql.yml/badge.svg)](https://github.com/1337-llama/QUIC-Research-and-Defense/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/1337-llama/QUIC-Research-and-Defense/badge)](https://scorecard.dev/viewer/?uri=github.com/1337-llama/QUIC-Research-and-Defense)
+[![Release](https://img.shields.io/github/v/release/1337-llama/QUIC-Research-and-Defense)](https://github.com/1337-llama/QUIC-Research-and-Defense/releases/latest)
 
 Research on the QUIC protocol and how defenders can detect its abuse in the wild, plus a **detection lab** that measures detections against labeled QUIC C2-like traffic.
 
@@ -29,6 +31,19 @@ Score detections from your own sensors against a lab run:
 go run ./cmd/detscore score -truth lab/harness/out/truth-merlin.jsonl \
   -notice my-zeek/notice.log -eve my-suricata/eve.json
 ```
+
+## Releases
+
+Each [release](https://github.com/1337-llama/QUIC-Research-and-Defense/releases) ships `detscore`, `beaconsim` and `beaconsrv` for Linux, macOS and Windows (amd64 and arm64). It also publishes the lab image as `ghcr.io/1337-llama/quic-research-lab` (linux/amd64 and linux/arm64). Every artifact comes with an SBOM and SLSA build provenance, and the checksums and image are signed with Sigstore, keyless, by the release workflow. The release notes give the verification commands. In short:
+
+```sh
+gh attestation verify quic-research_0.1.0_linux_amd64.tar.gz --repo 1337-llama/QUIC-Research-and-Defense
+cosign verify ghcr.io/1337-llama/quic-research-lab:0.1.0 \
+  --certificate-identity-regexp '^https://github.com/1337-llama/QUIC-Research-and-Defense/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ## Layout
 

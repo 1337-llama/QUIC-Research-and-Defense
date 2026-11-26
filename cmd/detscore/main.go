@@ -35,6 +35,7 @@ import (
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/profile"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/score"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/version"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/zeeklog"
 )
 
@@ -60,6 +61,7 @@ Usage:
   detscore ja4     -eve eve.json [-truth truth.jsonl]          JA4 fingerprints by client
   detscore score   -truth truth.jsonl [-alerts alerts.jsonl] [-eve eve.json] [-notice notice.log] [flags]
   detscore grade   -truth truth.jsonl -answers answers.txt     grade an analyst's exercise answers
+  detscore version                                             print the version
   detscore trend   -history h.jsonl [-report r.json -commit SHA] -out-dir DIR
                                                                results history and dashboard
 
@@ -89,6 +91,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = runGrade(args[1:], stdout, stderr)
 	case "trend":
 		err = runTrend(args[1:], stdout, stderr)
+	case "version", "-version", "--version":
+		fmt.Fprintf(stdout, "detscore %s\n", version.String())
+		return exitOK
 	case "-h", "-help", "--help", "help":
 		fmt.Fprint(stdout, usage)
 		return exitOK

@@ -101,6 +101,10 @@ func TestUsageErrors(t *testing.T) {
 	if code := run(context.Background(), []string{"-h"}, &stderr, nil); code != 0 {
 		t.Errorf("-h exit %d", code)
 	}
+	var v syncBuffer
+	if code := run(context.Background(), []string{"-version"}, &v, nil); code != 0 || !strings.HasPrefix(v.String(), "beaconsrv ") {
+		t.Errorf("-version exit %d: %q", code, v.String())
+	}
 	if code := run(context.Background(), nil, &stderr, nil); code != 2 {
 		t.Errorf("missing -cert-out exit %d", code)
 	}

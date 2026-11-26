@@ -22,6 +22,7 @@ import (
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/certs"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/labserver"
 	"github.com/1337-llama/QUIC-Research-and-Defense/internal/simcli"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/version"
 	"github.com/1337-llama/QUIC-Research-and-Defense/lab/internal/quicserver"
 )
 
@@ -42,6 +43,10 @@ func run(ctx context.Context, args []string, stderr io.Writer, ready chan<- stri
 	if err != nil {
 		fmt.Fprintf(stderr, "beaconsrv: %v\n", err)
 		return 2
+	}
+	if opts.ShowVersion {
+		fmt.Fprintf(stderr, "beaconsrv %s\n", version.String())
+		return 0
 	}
 	log, err := simcli.NewLogger(stderr, opts.LogFormat, opts.LogLevel)
 	if err != nil {

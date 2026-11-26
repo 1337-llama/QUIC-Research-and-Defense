@@ -39,3 +39,6 @@ lab/harness/out/
 *.pcap
 *.pcapng
 keys*.log
+
+# GoReleaser
+dist/

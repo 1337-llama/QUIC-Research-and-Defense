@@ -166,3 +166,10 @@ func TestRunFallsBackToTCP(t *testing.T) {
 		t.Errorf("server runs = %v", handler.Runs())
 	}
 }
+
+func TestRunVersion(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), []string{"-version"}, &stdout, &stderr); code != 0 || !strings.HasPrefix(stdout.String(), "beaconsim ") {
+		t.Fatalf("exit %d, %q %q", code, stdout.String(), stderr.String())
+	}
+}
