@@ -129,9 +129,8 @@ jobs:
             git fetch --depth=1 origin lab-results
             git worktree add results FETCH_HEAD
           else
-            git worktree add --detach results
-            git -C results checkout --orphan lab-results
-            git -C results rm -rq .
+            # First run: start the branch with no history (git >= 2.42).
+            git worktree add --orphan -b lab-results results
           fi
       - name: Update history and dashboard
         env:
