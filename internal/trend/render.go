@@ -88,7 +88,7 @@ func RenderSVG(entries []Entry, detectors []string) []byte {
 	fmt.Fprintf(&b, "<desc id=\"d\">%d lab runs. One panel per detector; blue is recall, orange is precision, both from 0 to 1.</desc>", len(entries))
 	fmt.Fprintf(&b, "<style>%s</style><g>", svgStyle)
 	fmt.Fprintf(&b, `<rect class="bg" width="%d" height="%d"/>`, width, height)
-	fmt.Fprintf(&b, `<text class="title" x="0" y="18">Precision and recall per detector, last %d runs</text>`, len(entries))
+	fmt.Fprintf(&b, `<text class="title" x="0" y="18">Precision and recall per detector, %s</text>`, lastRuns(len(entries)))
 	legend(&b, 0, 40)
 
 	if len(entries) == 0 {
@@ -269,7 +269,7 @@ func RenderMarkdown(w io.Writer, entries []Entry, opt MarkdownOptions) error {
 		fmt.Fprintf(&b, "| `%s` | %.3f | %.3f | %.3f | %s |\n", mdCell(det), m.Precision, m.Recall, m.F1, change)
 	}
 	if opt.ChartPath != "" {
-		fmt.Fprintf(&b, "\n## Over time\n\n![Precision and recall per detector over the last %d runs](%s)\n", len(entries), opt.ChartPath)
+		fmt.Fprintf(&b, "\n## Over time\n\n![Precision and recall per detector, %s](%s)\n", lastRuns(len(entries)), opt.ChartPath)
 	}
 
 	n := opt.RecentRuns
@@ -334,4 +334,11 @@ func isHex(s string) bool {
 // mdCell keeps a value from breaking out of a table cell or code span.
 func mdCell(s string) string {
 	return strings.NewReplacer("|", `\|`, "`", "'", "\n", " ", "\r", " ").Replace(s)
+}
+
+func lastRuns(n int) string {
+	if n == 1 {
+		return "last run"
+	}
+	return fmt.Sprintf("last %d runs", n)
 }
