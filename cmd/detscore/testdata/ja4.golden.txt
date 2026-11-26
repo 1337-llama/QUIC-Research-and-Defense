@@ -1,0 +1,3 @@
+PROTO  JA4                                   EVENTS  PROFILES                                                                    CLIENTS                              SNI
+quic   q13d0311h3_55b375c5d22e_cd85d2d88918  3       browser-like (benign), merlin-like (malicious), quicagent-like (malicious)  172.28.0.30,172.28.0.31,172.28.0.40  c2,cdn
+quic   q13d0313h3_55b375c5d22e_dea6d13ecaaf  1       -                                                                           172.28.0.50                          cdn

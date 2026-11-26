@@ -1,0 +1,45 @@
+title: QUIC (UDP/443) Connection From a Non-Browser Process
+id: dfd06c99-9679-43e9-8103-412475505d79
+status: experimental
+description: |
+    Detects a process other than a known browser or conferencing client
+    opening a UDP connection to port 443, the port QUIC and HTTP/3 use.
+    Real-world QUIC C2 (Merlin, Salat Stealer, QUICAgent, KUKURAT) runs as
+    its own process, so this is the highest-fidelity QUIC detection when
+    endpoint telemetry is available. Extend the filter with the approved
+    QUIC clients in your environment.
+references:
+    - https://github.com/1337-llama/QUIC-Research-and-Defense/blob/main/docs/04-detection-guide.md
+    - https://unit42.paloaltonetworks.com/custom-rats-target-southeast-asia-governments/
+author: QUIC-Research-and-Defense
+date: 2026-11-25
+tags:
+    - attack.command-and-control
+    - attack.t1071.001
+    - attack.t1573
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Protocol: udp
+        DestinationPort: 443
+        Initiated: 'true'
+    filter_browsers:
+        Image|endswith:
+            - '\chrome.exe'
+            - '\msedge.exe'
+            - '\firefox.exe'
+            - '\brave.exe'
+            - '\opera.exe'
+            - '\vivaldi.exe'
+    filter_conferencing:
+        Image|endswith:
+            - '\ms-teams.exe'
+            - '\Teams.exe'
+            - '\Zoom.exe'
+            - '\webex.exe'
+    condition: selection and not 1 of filter_*
+falsepositives:
+    - Other legitimate QUIC clients (update agents, VPNs, game launchers); add them to the filters
+level: medium

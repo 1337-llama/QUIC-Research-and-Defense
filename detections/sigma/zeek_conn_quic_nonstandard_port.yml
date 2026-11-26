@@ -1,0 +1,29 @@
+title: QUIC on a Non-Standard Port
+id: e2a067cb-0551-4158-8511-e80328d08422
+status: experimental
+description: |
+    Detects connections Zeek identified as QUIC on a port other than 443
+    (or 853 for DNS over QUIC). Blocking only UDP/443 does not stop QUIC,
+    which runs on any port. Zeek's QUIC analyzer must be enabled on the
+    ports you want covered.
+references:
+    - https://github.com/1337-llama/QUIC-Research-and-Defense/blob/main/docs/05-mitigations-and-policy.md
+author: QUIC-Research-and-Defense
+date: 2026-11-25
+tags:
+    - attack.command-and-control
+    - attack.t1571
+logsource:
+    product: zeek
+    service: conn
+detection:
+    selection:
+        service|contains: quic
+    filter_standard_ports:
+        id.resp_p:
+            - 443
+            - 853
+    condition: selection and not filter_standard_ports
+falsepositives:
+    - Applications that legitimately use QUIC on custom ports
+level: medium

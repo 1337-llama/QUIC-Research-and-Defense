@@ -3,10 +3,16 @@ package main
 import (
 	"bytes"
 	"flag"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/groundtruth"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/pcap"
+	"github.com/1337-llama/QUIC-Research-and-Defense/internal/pcap/pcaptest"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -200,5 +206,138 @@ func TestParseHelpers(t *testing.T) {
 	_ = l.Set("b")
 	if l.String() != "a,b" {
 		t.Errorf("listFlag = %q", l.String())
+	}
+}
+
+// writeBeaconPcap writes a capture with one regularly beaconing QUIC
+// connection and one irregular one.
+func writeBeaconPcap(t *testing.T) string {
+	t.Helper()
+	w := pcaptest.New(pcaptest.Options{LinkType: pcap.LinkEthernet})
+	t0 := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	c2 := netip.MustParseAddrPort("172.28.0.10:443")
+	beacon := netip.MustParseAddrPort("172.28.0.30:40001")
+	browse := netip.MustParseAddrPort("172.28.0.40:42001")
+	irregular := []int{0, 3, 4, 31, 33, 70, 71, 72, 118, 160, 163, 220}
+	for i := range 20 {
+		at := t0.Add(time.Duration(i) * 15 * time.Second)
+		w.UDP(at, beacon, c2, 1200)
+		w.UDP(at.Add(3*time.Millisecond), c2, beacon, 1200)
+	}
+	for _, s := range irregular {
+		at := t0.Add(time.Duration(s) * time.Second)
+		w.UDP(at, browse, c2, 1200)
+		w.UDP(at.Add(3*time.Millisecond), c2, browse, 900)
+	}
+	path := filepath.Join(t.TempDir(), "lab.pcap")
+	if err := os.WriteFile(path, w.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestCadenceCommand(t *testing.T) {
+	path := writeBeaconPcap(t)
+	code, out, errOut := runCLI(t, "cadence", "-pcap", path)
+	if code != exitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 || !strings.Contains(lines[0], `"detector":"intra-connection-cadence"`) ||
+		!strings.Contains(lines[0], `"orig":"172.28.0.30:40001"`) || !strings.Contains(lines[0], "20 client bursts") {
+		t.Fatalf("output = %s", out)
+	}
+	// The alerts feed straight into the scorer.
+	alerts := filepath.Join(t.TempDir(), "cadence.jsonl")
+	if code, _, errOut := runCLI(t, "cadence", "-pcap", path, "-out", alerts); code != exitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	if code, _, errOut := runCLI(t, "score", "-truth", td("truth.jsonl"), "-alerts", alerts,
+		"-require", "intra-connection-cadence:precision>=1"); code != exitOK {
+		t.Fatalf("score exit %d: %s", code, errOut)
+	}
+}
+
+func TestLabelCommand(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "truth-bg.jsonl")
+	code, _, errOut := runCLI(t, "label", "-conn", td("conn.log"), "-host", "172.28.0.40",
+		"-label", "benign", "-profile", "chromium", "-run-id", "chromium", "-out", out)
+	if code != exitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	recs, err := groundtruth.Read(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recs) != 12 { // the 12 QUIC connections; the DNS connection is excluded
+		t.Fatalf("got %d records", len(recs))
+	}
+	if recs[0].Profile != "chromium" || recs[0].Label != "benign" || recs[0].Remote.String() != "172.28.0.20:443" {
+		t.Errorf("record = %+v", recs[0])
+	}
+	code, stdout, _ := runCLI(t, "label", "-conn", td("conn.log"), "-host", "172.28.0.40", "-service", "",
+		"-label", "benign", "-profile", "p", "-run-id", "r")
+	if code != exitOK || strings.Count(stdout, "\n") != 13 {
+		t.Errorf("all-services label: exit %d, %d lines", code, strings.Count(stdout, "\n"))
+	}
+}
+
+func TestJA4Command(t *testing.T) {
+	code, out, errOut := runCLI(t, "ja4", "-eve", td("eve-ja4.json"), "-truth", td("truth.jsonl"))
+	if code != exitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	golden(t, "ja4.golden.txt", out)
+	for _, want := range []string{"merlin-like (malicious)", "quicagent-like (malicious)", "browser-like (benign)", "q13d0313h3", "172.28.0.50"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary missing %q:\n%s", want, out)
+		}
+	}
+	code, out, _ = runCLI(t, "ja4", "-eve", td("eve-ja4.json"), "-format", "json")
+	if code != exitOK || !strings.Contains(out, `"events": 3`) {
+		t.Errorf("json summary: exit %d\n%s", code, out)
+	}
+	code, out, _ = runCLI(t, "ja4", "-eve", td("eve.json"))
+	if code != exitOK || !strings.Contains(out, "no JA4 fingerprints") {
+		t.Errorf("empty summary: exit %d\n%s", code, out)
+	}
+}
+
+func TestNewCommandErrors(t *testing.T) {
+	pcapPath := writeBeaconPcap(t)
+	tests := []struct {
+		name string
+		args []string
+		code int
+		msg  string
+	}{
+		{"cadence no pcap", []string{"cadence"}, exitUsage, "-pcap is required"},
+		{"cadence bad port", []string{"cadence", "-pcap", pcapPath, "-ports", "x"}, exitUsage, "invalid port"},
+		{"cadence bad config", []string{"cadence", "-pcap", pcapPath, "-min-bursts", "1"}, exitUsage, "minimum bursts"},
+		{"cadence not pcap", []string{"cadence", "-pcap", td("conn.log")}, exitError, "pcap"},
+		{"cadence bad flag", []string{"cadence", "-nope"}, exitUsage, "not defined"},
+		{"label no conn", []string{"label"}, exitUsage, "-conn is required"},
+		{"label bad host", []string{"label", "-conn", td("conn.log"), "-host", "x"}, exitUsage, "invalid -host"},
+		{"label bad spec", []string{"label", "-conn", td("conn.log"), "-host", "10.0.0.1", "-label", "meh"}, exitUsage, "label"},
+		{"label missing file", []string{"label", "-conn", td("missing"), "-host", "10.0.0.1", "-label", "benign", "-profile", "p", "-run-id", "r"}, exitError, "no such file"},
+		{"label bad out", []string{"label", "-conn", td("conn.log"), "-host", "10.0.0.1", "-label", "benign", "-profile", "p", "-run-id", "r", "-out", td("no/dir/x")}, exitError, "no such file"},
+		{"ja4 no eve", []string{"ja4"}, exitUsage, "-eve file is required"},
+		{"ja4 bad format", []string{"ja4", "-eve", td("eve-ja4.json"), "-format", "xml"}, exitUsage, "invalid -format"},
+		{"ja4 bad eve", []string{"ja4", "-eve", td("notice.log")}, exitError, "eve"},
+		{"ja4 bad truth", []string{"ja4", "-eve", td("eve-ja4.json"), "-truth", td("conn.log")}, exitError, "groundtruth"},
+		{"ja4 bad out", []string{"ja4", "-eve", td("eve-ja4.json"), "-out", td("no/dir/x")}, exitError, "no such file"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			code, out, errOut := runCLI(t, tc.args...)
+			if code != tc.code || !strings.Contains(out+errOut, tc.msg) {
+				t.Fatalf("exit %d (want %d), output missing %q\nstdout: %s\nstderr: %s", code, tc.code, tc.msg, out, errOut)
+			}
+		})
 	}
 }

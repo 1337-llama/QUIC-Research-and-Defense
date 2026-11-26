@@ -11,7 +11,7 @@ Research on the QUIC protocol and how defenders can detect its abuse in the wild
 - **[Research docs](docs/README.md):** how QUIC works, what sensors can see, how attackers use it for C2, ranked detections and mitigations.
 - **Beacon simulator** (`beaconsim`, `beaconsrv`): generates QUIC traffic shaped like real C2 families (Merlin, QUICAgent and others) and benign browsing, on quic-go, the Go QUIC stack real threats use. It sends only benign, self-identifying payloads, has no remote-control capability, and refuses non-lab destinations by default. → [docs](docs/06-beacon-simulator.md)
 - **Detection lab:** a Docker harness that captures the traffic on an isolated network, runs Zeek and Suricata, and scores every detection for precision and recall against ground truth. → [docs](docs/07-detection-lab.md)
-- **Detection content:** [Zeek scripts](detections/zeek/) and [Suricata rules](detections/suricata/), plus reference detectors in `detscore`.
+- **Detection content:** [Zeek scripts](detections/zeek/), [Suricata rules](detections/suricata/), [Sigma rules](detections/sigma/) and [Splunk/Elastic hunting queries](detections/siem/README.md), plus reference detectors in `detscore`, including packet-timing beacon detection inside a single connection.
 
 ## Quick start
 

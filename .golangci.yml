@@ -90,6 +90,10 @@ linters:
       # Test helpers and fixtures trade some rigor for readability.
       - path: _test\.go
         linters: [gosec, errcheck, forcetypeassert, gocyclo, prealloc, unparam, noctx, contextcheck]
+      # Synthetic-capture builder for tests: integer narrowing is bounded by
+      # construction there.
+      - path: internal/pcap/pcaptest/
+        linters: [gosec]
       # Lab binaries read operator-supplied paths by design.
       - path: (cmd|lab/cmd)/
         text: "G304"

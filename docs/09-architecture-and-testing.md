@@ -17,6 +17,10 @@ flowchart TB
     simcli --> profile
     simcli --> safety
     zeeklog --> detect
+    pcap --> cadence
+    cadence --> detscore
+    zeeklog --> labeling
+    labeling --> detscore
     detect --> score
     eve --> score
     groundtruth --> score
@@ -53,7 +57,7 @@ The beacon runner sees the network only through three interfaces: `Transport`, `
 | **Concurrency** | `-race` on all tests | The ground-truth writer, the lab handler and the transport are safe under concurrent use | `make test-race`, CI |
 | **Deterministic simulation** | `internal/beacon` | Connection modes, stop conditions, retry and backoff, permanent failures and cancellation, exactly, using a fake clock and a handler-backed transport | every test run |
 | **Property-style statistics** | `internal/schedule` | Jitter stays in bounds and centers on the interval. Exponential draws have mean ≈ interval and CV ≈ 1, which the periodicity detector depends on | every test run |
-| **Fuzzing** | profile loader, payload decoder, Zeek and EVE parsers | No panics on arbitrary input, and anything accepted round-trips or is internally consistent | `make fuzz`, CI (60s per target) |
+| **Fuzzing** | profile loader, payload decoder, Zeek, EVE and pcap parsers | No panics on arbitrary input, and anything accepted round-trips or is internally consistent | `make fuzz`, CI (60s per target) |
 | **Golden files** | `cmd/detscore` | Exact detector and report output on a realistic fixture, with the expected counts also asserted explicitly | every test run, `make golden` to update |
 | **Integration** | `lab/` | Real HTTP/3 over loopback. Ground truth names exactly the 4-tuple the server sees, connection reuse matches the profile, untrusted certificates fail, public targets are refused, handshakes time out | `make lab-test`, CI |
 | **End to end** | `lab/harness` | Real traffic, a real capture, real Zeek and Suricata, with CI gates on precision and recall | `make lab-run`, CI nightly and on lab changes |
