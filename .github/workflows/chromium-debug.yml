@@ -1,0 +1,40 @@
+name: chromium-debug
+on:
+  push:
+    branches: [debug/chromium]
+permissions:
+  contents: read
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start CDN
+        working-directory: lab/harness
+        run: |
+          mkdir -p out/shared
+          export LAB_OUT=$PWD/out LAB_UID=$(id -u) LAB_GID=$(id -g)
+          docker compose -f compose.yaml build cdn
+          docker compose -f compose.yaml run -d --name cdnx --no-deps cdn beaconsrv -listen :443 -listen-tcp :443 -hosts cdn,172.28.0.20 -cert-out /shared/cdn.pem -spki-out /shared/cdn.spki || true
+          docker compose -f compose.yaml up -d cdn
+          sleep 5; ls -la out/shared; cat out/shared/cdn.spki
+          docker compose -f compose.yaml logs cdn | tail
+      - name: Probe Chromium
+        working-directory: lab/harness
+        run: |
+          export LAB_OUT=$PWD/out
+          net=$(docker network ls --format '{{.Name}}' | grep labnet)
+          spki=$(cat out/shared/cdn.spki)
+          img=chromedp/headless-shell:stable
+          docker pull -q $img
+          docker run --rm --entrypoint /headless-shell/headless-shell $img --version || true
+          run() { echo "::group::$1"; shift; docker run --rm --network "$net" --shm-size 256m --entrypoint sh $img -c "$*" 2>&1 | grep -v -i -E 'dbus|fontconfig' | tail -60; echo "::endgroup::"; }
+          base="timeout 40 /headless-shell/headless-shell --no-sandbox --headless --disable-gpu --no-first-run --user-data-dir=/tmp/p --enable-logging=stderr --v=0"
+          run "data url" "$base --dump-dom 'data:text/html,<p>ok</p>'; echo exit=\$?"
+          run "getent" "getent hosts cdn; ls /headless-shell | head"
+          run "forced quic" "$base --host-resolver-rules='MAP cdn 172.28.0.20' --enable-quic --origin-to-force-quic-on=cdn:443 --ignore-certificate-errors-spki-list=$spki --log-net-log=/tmp/n.json --net-log-capture-mode=Default --dump-dom https://cdn/; echo exit=\$?; grep -o -E '\"(net_error|quic_error|error)\":[^,}]*' /tmp/n.json | sort | uniq -c | head -20"
+          run "no spki list" "$base --host-resolver-rules='MAP cdn 172.28.0.20' --enable-quic --origin-to-force-quic-on=cdn:443 --ignore-certificate-errors --dump-dom https://cdn/; echo exit=\$?"
+          run "tcp only" "$base --host-resolver-rules='MAP cdn 172.28.0.20' --ignore-certificate-errors-spki-list=$spki --dump-dom https://cdn/; echo exit=\$?"
+          run "old headless" "$base --headless=old --host-resolver-rules='MAP cdn 172.28.0.20' --enable-quic --origin-to-force-quic-on=cdn:443 --ignore-certificate-errors-spki-list=$spki --dump-dom https://cdn/; echo exit=\$?"
+          docker compose -f compose.yaml logs cdn | tail -20
